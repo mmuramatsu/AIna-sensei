@@ -215,7 +215,7 @@ export function Hud() {
   };
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-slate-950/90 text-white rounded-xl border border-white/10 shadow-2xl overflow-hidden backdrop-blur-xl">
+    <div className="w-screen h-screen flex flex-col bg-slate-950/90 text-white rounded-l-2xl border-l border-y border-white/10 shadow-2xl overflow-hidden backdrop-blur-xl">
       {/* Premium Glassmorphic Header */}
       <header className="flex justify-between items-center px-4 py-3 bg-white/5 border-b border-white/10 select-none">
         <div className="flex items-center gap-2">

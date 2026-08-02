@@ -150,9 +150,30 @@ fn register_hotkeys(app: &AppHandle, config: &AppConfig, state: &AppState) -> Re
 }
 
 // Window commands
+fn position_hud_window(window: &tauri::WebviewWindow) -> Result<(), String> {
+    if let Some(monitor) = window.primary_monitor().map_err(|e| e.to_string())? {
+        let size = monitor.size();
+        let pos = monitor.position();
+
+        // 1/4th of monitor width
+        let hud_width = (size.width as f64 / 4.0) as u32;
+        let hud_height = size.height;
+
+        let x = pos.x + (size.width as i32 - hud_width as i32);
+        let y = pos.y;
+
+        window.set_size(tauri::PhysicalSize::new(hud_width, hud_height)).map_err(|e| e.to_string())?;
+        window.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn show_window(app: AppHandle, label: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
+        if label == "hud" {
+            let _ = position_hud_window(&window);
+        }
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     }
@@ -312,6 +333,7 @@ fn trigger_toggle_overlay(app: &AppHandle) {
             if visible {
                 let _ = hud.hide();
             } else {
+                let _ = position_hud_window(&hud);
                 let _ = hud.show();
                 let _ = hud.set_focus();
             }
