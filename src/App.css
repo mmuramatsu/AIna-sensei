@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Custom utility variables and tweaks can be placed here */
+:root {
+  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+}
