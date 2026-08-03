@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "../lib/types";
 import { performOcr, performLlmQuery } from "../services/api";
+import ReactMarkdown from "react-markdown";
 
 export function Hud() {
   const [loading, setLoading] = useState(false);
@@ -353,7 +354,60 @@ export function Hud() {
             <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider block mb-1">AIna-sensei Analysis</span>
             
             {/* Formatted streamed response */}
-            {formatExplanation(explanation)}
+            <ReactMarkdown
+              components={{
+                h1: ({ node, ...props }) => (
+                  <h2 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mt-6 mb-3" {...props} />
+                ),
+                h2: ({ node, ...props }) => (
+                  <h3 className="text-base font-bold text-indigo-400 mt-5 mb-2 border-b border-white/5 pb-1" {...props} />
+                ),
+                h3: ({ node, ...props }) => (
+                  <h4 className="text-sm font-semibold text-blue-400 mt-4 mb-2 tracking-wide uppercase" {...props} />
+                ),
+                p: ({ node, ...props }) => (
+                  <p className="text-white/80 text-sm leading-relaxed my-1.5 pl-1" {...props} />
+                ),
+                strong: ({ node, ...props }) => (
+                  <strong className="text-yellow-300 font-bold bg-yellow-500/5 px-1 py-0.5 rounded border border-yellow-500/10" {...props} />
+                ),
+                ul: ({ node, ...props }) => (
+                  <ul className="list-disc pl-5 my-2 space-y-1" {...props} />
+                ),
+                ol: ({ node, ...props }) => (
+                  <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />
+                ),
+                li: ({ node, ...props }) => (
+                  <li className="text-white/80 text-sm leading-relaxed my-1" {...props} />
+                ),
+                blockquote: ({ node, ...props }) => (
+                  <blockquote className="border-l-4 border-indigo-500/40 bg-indigo-500/5 pl-3 py-1 my-2 rounded-r italic text-white/70 text-sm" {...props} />
+                ),
+                a: ({ node, ...props }) => (
+                  <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
+                ),
+                hr: ({ node, ...props }) => (
+                  <hr className="border-white/10 my-4" {...props} />
+                ),
+                code: ({ node, className, children, ...props }: any) => {
+                  const match = /language-(\w+)/.exec(className || '');
+                  const inline = !match;
+                  return inline ? (
+                    <code className="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-indigo-300" {...props}>
+                      {children}
+                    </code>
+                  ) : (
+                    <pre className="bg-black/50 p-2 rounded overflow-x-auto my-2 border border-white/5">
+                      <code className="font-mono text-xs text-indigo-300" {...props}>
+                        {children}
+                      </code>
+                    </pre>
+                  );
+                }
+              }}
+            >
+              {explanation}
+            </ReactMarkdown>
 
             {/* Shimmer loading feedback while AI is processing the output */}
             {loading && !explanation && (
