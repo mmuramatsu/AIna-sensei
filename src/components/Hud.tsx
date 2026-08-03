@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "../lib/types";
 import { performOcr, performLlmQuery } from "../services/api";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 export function Hud() {
   const [loading, setLoading] = useState(false);
@@ -134,85 +135,23 @@ export function Hud() {
     navigator.clipboard.writeText(text);
   };
 
-  // Convert raw markdown line breaks and structure to HTML styles for premium looks
-  const formatExplanation = (rawText: string) => {
-    if (!rawText) return null;
-    
-    return rawText.split("\n").map((line, idx) => {
-      const trimmed = line.trim();
-      if (!trimmed) return <div key={idx} className="h-2" />;
-
-      // Main headings (e.g. ### Headers)
-      if (trimmed.startsWith("###")) {
-        return (
-          <h4 key={idx} className="text-sm font-semibold text-blue-400 mt-4 mb-2 tracking-wide uppercase">
-            {trimmed.replace("###", "").trim()}
-          </h4>
-        );
-      }
-      if (trimmed.startsWith("##")) {
-        return (
-          <h3 key={idx} className="text-base font-bold text-indigo-400 mt-5 mb-2 border-b border-white/5 pb-1">
-            {trimmed.replace("##", "").trim()}
-          </h3>
-        );
-      }
-      if (trimmed.startsWith("#")) {
-        return (
-          <h2 key={idx} className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mt-6 mb-3">
-            {trimmed.replace("#", "").trim()}
-          </h2>
-        );
-      }
-
-      // Ordered list items (e.g., 1. Natural English Translation)
-      const numListMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
-      if (numListMatch) {
-        return (
-          <div key={idx} className="flex gap-2 items-start my-2">
-            <span className="flex items-center justify-center bg-blue-500/10 text-blue-400 rounded-md px-1.5 py-0.5 text-xs font-bold border border-blue-500/20">
-              {numListMatch[1]}
-            </span>
-            <span className="text-white/90 text-sm font-medium leading-relaxed">{numListMatch[2]}</span>
-          </div>
-        );
-      }
-
-      // Bullet points
-      if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
-        return (
-          <div key={idx} className="flex gap-2 items-center my-1.5 pl-2 text-white/80 text-sm leading-relaxed">
-            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full flex-shrink-0" />
-            <span>{trimmed.substring(1).trim()}</span>
-          </div>
-        );
-      }
-
-      // General Text - parse inline furigana or key phrases in bold `**text**`
-      let formattedLine = trimmed;
-      const boldParts = trimmed.split(/\*\*([^*]+)\*\*/g);
-      if (boldParts.length > 1) {
-        return (
-          <p key={idx} className="text-white/80 text-sm leading-relaxed my-1 pl-1">
-            {boldParts.map((part, pIdx) =>
-              pIdx % 2 === 1 ? (
-                <strong key={pIdx} className="text-yellow-300 font-bold bg-yellow-500/5 px-1 py-0.5 rounded border border-yellow-500/10">
-                  {part}
-                </strong>
-              ) : (
-                part
-              )
-            )}
-          </p>
-        );
-      }
-
-      return (
-        <p key={idx} className="text-white/80 text-sm leading-relaxed my-1 pl-1">
-          {formattedLine}
-        </p>
-      );
-    });
+  const cleanExplanation = (text: string) => {
+    if (!text) return "";
+    return text
+      .replace(/\$\\rightarrow\$/g, "→")
+      .replace(/\\rightarrow/g, "→")
+      .replace(/\$\\implies\$/g, "⇒")
+      .replace(/\\implies/g, "⇒")
+      .replace(/\$\\leftrightarrow\$/g, "↔")
+      .replace(/\\leftrightarrow/g, "↔")
+      .replace(/\$\\sim\$/g, "~")
+      .replace(/\\sim/g, "~")
+      .replace(/\$\\times\$/g, "×")
+      .replace(/\\times/g, "×")
+      .replace(/\$\\cdot\$/g, "•")
+      .replace(/\\cdot/g, "•")
+      .replace(/\$\\dots\$/g, "…")
+      .replace(/\\dots/g, "…");
   };
 
   return (
@@ -355,6 +294,7 @@ export function Hud() {
             
             {/* Formatted streamed response */}
             <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
               components={{
                 h1: ({ node, ...props }) => (
                   <h2 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mt-6 mb-3" {...props} />
@@ -389,6 +329,26 @@ export function Hud() {
                 hr: ({ node, ...props }) => (
                   <hr className="border-white/10 my-4" {...props} />
                 ),
+                table: ({ node, ...props }) => (
+                  <div className="overflow-x-auto my-3 rounded-lg border border-white/10 custom-scrollbar">
+                    <table className="min-w-full divide-y divide-white/10 bg-white/5" {...props} />
+                  </div>
+                ),
+                thead: ({ node, ...props }) => (
+                  <thead className="bg-white/10" {...props} />
+                ),
+                tbody: ({ node, ...props }) => (
+                  <tbody className="divide-y divide-white/5 bg-black/20" {...props} />
+                ),
+                tr: ({ node, ...props }) => (
+                  <tr className="hover:bg-white/5 transition-colors" {...props} />
+                ),
+                th: ({ node, ...props }) => (
+                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-blue-300 border-r border-white/10 last:border-r-0" {...props} />
+                ),
+                td: ({ node, ...props }) => (
+                  <td className="px-3 py-2 text-xs text-white/80 border-r border-white/5 last:border-r-0 whitespace-nowrap" {...props} />
+                ),
                 code: ({ node, className, children, ...props }: any) => {
                   const match = /language-(\w+)/.exec(className || '');
                   const inline = !match;
@@ -406,7 +366,7 @@ export function Hud() {
                 }
               }}
             >
-              {explanation}
+              {cleanExplanation(explanation)}
             </ReactMarkdown>
 
             {/* Shimmer loading feedback while AI is processing the output */}
