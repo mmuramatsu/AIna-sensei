@@ -304,8 +304,28 @@ export function Hud() {
                   <span className="text-xs text-white/40 ml-2 animate-pulse">Running Cloud Vision OCR...</span>
                 </div>
               ) : ocrText ? (
-                <p className="text-sm font-semibold mt-1 text-white truncate font-japanese leading-relaxed" title={ocrText}>
-                  {ocrText}
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold mt-1 text-white truncate font-japanese leading-relaxed" title={ocrText}>
+                    {ocrText}
+                  </p>
+                  <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    Text recognized successfully
+                  </p>
+                </div>
+              ) : loading ? (
+                <div className="h-6 mt-1 flex items-center">
+                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs text-white/40 ml-2 animate-pulse">
+                    {config?.ocr.mode === "llm_multimodal" 
+                      ? "Tutor reading image directly..." 
+                      : "Processing capture..."}
+                  </span>
+                </div>
+              ) : explanation ? (
+                <p className="text-xs text-emerald-400 font-medium mt-1 flex items-center gap-1 animate-pulse">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                  Processed successfully via Vision LLM
                 </p>
               ) : (
                 <p className="text-xs italic text-white/30 mt-1">Waiting for character recognition...</p>
