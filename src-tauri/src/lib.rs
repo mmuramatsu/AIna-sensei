@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use std::str::FromStr;
 use std::io::Cursor;
 use base64::prelude::*;
-use screenshots::image::{ImageBuffer, Rgba, RgbaImage, DynamicImage, ImageFormat};
+use screenshots::image::{RgbaImage, DynamicImage, ImageFormat};
 use screenshots::Screen;
 use tauri::{AppHandle, Manager, Emitter};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
