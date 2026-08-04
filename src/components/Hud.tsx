@@ -90,6 +90,7 @@ export function Hud() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   
   const contentEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll explanation as it streams or messages are added
   useEffect(() => {
@@ -97,6 +98,15 @@ export function Hud() {
       contentEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Auto-resize the chat textarea height up to 6 lines
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [chatInput]);
 
   // Load config on mount
   const fetchConfig = async () => {
@@ -279,6 +289,13 @@ export function Hud() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage(e);
     }
   };
 
@@ -491,19 +508,21 @@ export function Hud() {
 
       {/* Sticky Chat Input Footer */}
       {croppedImage && messages.length > 1 && (
-        <form onSubmit={handleSendMessage} className="px-4 py-3 bg-white/5 border-t border-white/10 flex-shrink-0 flex gap-2 items-center">
-          <input
-            type="text"
+        <form onSubmit={handleSendMessage} className="px-4 py-3 bg-white/5 border-t border-white/10 flex-shrink-0 flex gap-2 items-end">
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             disabled={loading}
             placeholder={loading ? "Tutor is writing..." : "Ask AIna-sensei to explain further..."}
-            className="flex-1 bg-black/40 border border-white/15 focus:border-indigo-500 rounded-xl px-4 py-2 text-sm text-white outline-none transition-all placeholder:text-white/30"
+            className="flex-1 bg-black/40 border border-white/15 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none transition-all placeholder:text-white/30 resize-none max-h-[140px] overflow-y-auto custom-scrollbar leading-5"
           />
           <button
             type="submit"
             disabled={loading || !chatInput.trim()}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white p-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer shadow-md shadow-indigo-500/10"
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white p-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer shadow-md shadow-indigo-500/10 mb-0.5"
             title="Send follow-up question"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
