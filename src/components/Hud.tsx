@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AppConfig } from "../lib/types";
-import { performOcr, performLlmQuery } from "../services/api";
+import { performOcr, performLlmQuery, ChatMessage } from "../services/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -83,19 +83,20 @@ export function Hud() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ocrText, setOcrText] = useState("");
-  const [explanation, setExplanation] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState("");
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [config, setConfig] = useState<AppConfig | null>(null);
   
   const contentEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll explanation as it streams
+  // Auto-scroll explanation as it streams or messages are added
   useEffect(() => {
     if (contentEndRef.current) {
       contentEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [explanation]);
+  }, [messages]);
 
   // Load config on mount
   const fetchConfig = async () => {
@@ -116,7 +117,7 @@ export function Hud() {
     const unlistenPromise = listen<{ image: string }>("explain-image", async (event) => {
       const imageBase64 = event.payload.image;
       setCroppedImage(imageBase64);
-      setExplanation("");
+      setMessages([]);
       setOcrText("");
       setError(null);
       setLoading(true);
@@ -147,7 +148,6 @@ export function Hud() {
         setOcrLoading(false);
 
         // 2. Prepare LLM prompt
-        // If OCR was successful, inject it. Otherwise, instruct LLM to transcribe & translate.
         let finalPrompt = "";
         if (detectedText) {
           finalPrompt = currentConfig.llm.system_prompt.replace("{extracted_text}", detectedText);
@@ -155,13 +155,29 @@ export function Hud() {
           finalPrompt = `${currentConfig.llm.system_prompt}\n\n[NO OCR DETECTED - PLEASE TRANSCRIBE AND ANALYZE THE TARGET IMAGE DIRECTLY]`;
         }
 
+        const initialMessages = [
+          { role: "user" as const, content: detectedText ? finalPrompt : `${finalPrompt}\n\n[Analyzing the screenshot directly]` },
+          { role: "assistant" as const, content: "" }
+        ];
+        setMessages(initialMessages);
+
         // 3. Query LLM and Stream results
         await performLlmQuery(
-          finalPrompt,
+          initialMessages,
           detectedText ? null : imageBase64, // Send image ONLY if OCR failed/bypassed
           currentConfig.llm,
           (chunk) => {
-            setExplanation((prev) => prev + chunk);
+            setMessages((prev) => {
+              const next = [...prev];
+              if (next.length > 0) {
+                const lastIdx = next.length - 1;
+                next[lastIdx] = {
+                  ...next[lastIdx],
+                  content: next[lastIdx].content + chunk,
+                };
+              }
+              return next;
+            });
           }
         );
 
@@ -212,6 +228,60 @@ export function Hud() {
     navigator.clipboard.writeText(text);
   };
 
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || loading) return;
+
+    const userMsg = chatInput.trim();
+    setChatInput("");
+
+    // Setup message turns
+    const updatedMessages: ChatMessage[] = [
+      ...messages,
+      { role: "user", content: userMsg },
+      { role: "assistant", content: "" }
+    ];
+    setMessages(updatedMessages);
+    setLoading(true);
+
+    try {
+      const historyToSend = updatedMessages.slice(0, -1);
+      
+      await performLlmQuery(
+        historyToSend,
+        null, // No image re-upload on follow-up chat turns
+        config!.llm,
+        (chunk) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            if (next.length > 0) {
+              const lastIdx = next.length - 1;
+              next[lastIdx] = {
+                ...next[lastIdx],
+                content: next[lastIdx].content + chunk,
+              };
+            }
+            return next;
+          });
+        }
+      );
+    } catch (err: any) {
+      console.error("Chat message failed:", err);
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next.length > 0) {
+          next[next.length - 1] = {
+            role: "assistant",
+            content: `⚠️ Error: ${err.message || "Failed to query the AI backend."}`
+          };
+        }
+        return next;
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const cleanExplanation = (text: string) => {
     if (!text) return "";
     return text
@@ -234,7 +304,7 @@ export function Hud() {
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-950/90 text-white rounded-l-2xl border-l border-y border-white/10 shadow-2xl overflow-hidden backdrop-blur-xl">
       {/* Premium Glassmorphic Header */}
-      <header className="flex justify-between items-center px-4 py-3 bg-white/5 border-b border-white/10 select-none">
+      <header className="flex justify-between items-center px-4 py-3 bg-white/5 border-b border-white/10 select-none flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-white/70">AIna-sensei HUD</h2>
@@ -273,10 +343,10 @@ export function Hud() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar">
+      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar flex flex-col">
         {/* Dynamic State HUD Messages */}
         {!croppedImage && !loading && (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-3 py-10">
+          <div className="flex flex-col items-center justify-center my-auto text-center space-y-3 py-10">
             <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/40">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -297,7 +367,7 @@ export function Hud() {
 
         {/* Capture Snapshot Block */}
         {croppedImage && (
-          <div className="flex gap-3 bg-white/5 border border-white/10 rounded-xl p-3 items-center backdrop-blur shadow-sm">
+          <div className="flex gap-3 bg-white/5 border border-white/10 rounded-xl p-3 items-center backdrop-blur shadow-sm flex-shrink-0">
             <div className="w-24 max-h-16 rounded border border-white/10 bg-black/40 overflow-hidden flex-shrink-0 flex items-center justify-center">
               <img src={croppedImage} alt="Cropped regional selection" className="object-contain w-full h-full max-h-16" />
             </div>
@@ -307,7 +377,7 @@ export function Hud() {
                 {ocrText && (
                   <button
                     onClick={() => handleCopyText(ocrText)}
-                    className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold uppercase tracking-wider flex items-center gap-1"
+                    className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold uppercase tracking-wider flex items-center gap-1 cursor-pointer"
                   >
                     Copy text
                   </button>
@@ -330,7 +400,7 @@ export function Hud() {
                     Text recognized successfully
                   </p>
                 </div>
-              ) : loading ? (
+              ) : loading && messages.length === 0 ? (
                 <div className="h-6 mt-1 flex items-center">
                   <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                   <span className="text-xs text-white/40 ml-2 animate-pulse">
@@ -339,7 +409,7 @@ export function Hud() {
                       : "Processing capture..."}
                   </span>
                 </div>
-              ) : explanation ? (
+              ) : messages.length > 1 ? (
                 <p className="text-xs text-emerald-400 font-medium mt-1 flex items-center gap-1 animate-pulse">
                   <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
                   Processed successfully via Vision LLM
@@ -353,7 +423,7 @@ export function Hud() {
 
         {/* Error Message banner */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs flex gap-2.5 items-start">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs flex gap-2.5 items-start flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -364,32 +434,84 @@ export function Hud() {
           </div>
         )}
 
-        {/* Explanation Stream display */}
-        {(explanation || loading) && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4 backdrop-blur shadow-sm space-y-1">
-            <span className="text-[10px] uppercase font-bold text-white/40 tracking-wider block mb-1">AIna-sensei Analysis</span>
-            
-            {/* Formatted streamed response */}
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={markdownComponents}
-            >
-              {cleanExplanation(explanation)}
-            </ReactMarkdown>
+        {/* Conversation Chat Feed */}
+        {messages.length > 0 && (
+          <div className="flex-1 space-y-4 flex flex-col">
+            {messages.map((msg, idx) => {
+              // Hide the initial hidden system instructions block from feed view to avoid duplicate reading
+              const isInitialUserPrompt = idx === 0 && msg.role === "user";
+              if (isInitialUserPrompt) return null;
 
-            {/* Shimmer loading feedback while AI is processing the output */}
-            {loading && !explanation && (
-              <div className="space-y-2 py-2">
-                <div className="h-4 bg-white/10 rounded animate-pulse w-3/4" />
-                <div className="h-4 bg-white/10 rounded animate-pulse w-5/6" />
-                <div className="h-4 bg-white/10 rounded animate-pulse w-2/3" />
-              </div>
-            )}
+              return (
+                <div 
+                  key={idx} 
+                  className={`p-4 rounded-xl border backdrop-blur shadow-sm space-y-1.5 flex flex-col ${
+                    msg.role === "user"
+                      ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-100 self-end ml-10 max-w-[90%]"
+                      : "bg-white/5 border-white/10 text-white/90"
+                  }`}
+                >
+                  <div className="flex justify-between items-center pb-1 border-b border-white/5 mb-1 flex-shrink-0">
+                    <span className="text-[9px] uppercase font-black text-white/35 tracking-wider">
+                      {msg.role === "user" ? "You (Follow-up)" : "AIna-sensei"}
+                    </span>
+                  </div>
+
+                  {msg.role === "assistant" ? (
+                    <div className="text-sm overflow-hidden leading-relaxed">
+                      {msg.content ? (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
+                          {cleanExplanation(msg.content)}
+                        </ReactMarkdown>
+                      ) : (
+                        /* Shimmer loading feedback while AI is processing the output chunk */
+                        <div className="space-y-2 py-2">
+                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4" />
+                          <div className="h-4 bg-white/10 rounded animate-pulse w-5/6" />
+                          <div className="h-4 bg-white/10 rounded animate-pulse w-2/3" />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+                      {msg.content}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
             
             <div ref={contentEndRef} />
           </div>
         )}
       </main>
+
+      {/* Sticky Chat Input Footer */}
+      {croppedImage && messages.length > 1 && (
+        <form onSubmit={handleSendMessage} className="px-4 py-3 bg-white/5 border-t border-white/10 flex-shrink-0 flex gap-2 items-center">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            disabled={loading}
+            placeholder={loading ? "Tutor is writing..." : "Ask AIna-sensei to explain further..."}
+            className="flex-1 bg-black/40 border border-white/15 focus:border-indigo-500 rounded-xl px-4 py-2 text-sm text-white outline-none transition-all placeholder:text-white/30"
+          />
+          <button
+            type="submit"
+            disabled={loading || !chatInput.trim()}
+            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white p-2.5 rounded-xl transition-all active:scale-95 flex items-center justify-center flex-shrink-0 cursor-pointer shadow-md shadow-indigo-500/10"
+            title="Send follow-up question"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 transform rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9-2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+          </button>
+        </form>
+      )}
     </div>
   );
 }

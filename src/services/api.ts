@@ -15,6 +15,11 @@ export interface LlmConfig {
   system_prompt: string;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 /**
  * Perform Optical Character Recognition on a base64-encoded PNG image using Google Cloud Vision API.
  */
@@ -73,7 +78,7 @@ export async function performOcr(base64Image: string, config: OcrConfig): Promis
  * Sends a query to the configured LLM provider and streams the result back.
  */
 export async function performLlmQuery(
-  prompt: string,
+  messages: ChatMessage[],
   base64Image: string | null,
   config: LlmConfig,
   onChunk: (chunk: string) => void
@@ -81,11 +86,11 @@ export async function performLlmQuery(
   const provider = config.provider.toLowerCase();
 
   if (provider === "ollama") {
-    return streamOllama(prompt, base64Image, config, onChunk);
+    return streamOllama(messages, base64Image, config, onChunk);
   } else if (provider === "gemini") {
-    return streamGemini(prompt, base64Image, config, onChunk);
+    return streamGemini(messages, base64Image, config, onChunk);
   } else if (provider === "openai" || provider === "custom" || provider === "deepseek") {
-    return streamOpenAICompatible(prompt, base64Image, config, onChunk);
+    return streamOpenAICompatible(messages, base64Image, config, onChunk);
   } else {
     throw new Error(`Unsupported LLM provider: ${config.provider}`);
   }
@@ -95,26 +100,38 @@ export async function performLlmQuery(
  * Stream helper for Ollama endpoint
  */
 async function streamOllama(
-  prompt: string,
+  messages: ChatMessage[],
   base64Image: string | null,
   config: LlmConfig,
   onChunk: (chunk: string) => void
 ): Promise<string> {
   const baseUrl = config.endpoint_url || "http://localhost:11434";
-  const url = `${baseUrl}/api/generate`;
+  const url = `${baseUrl}/api/chat`;
 
-  const bodyPayload: any = {
+  const mappedMessages = messages.map((msg, idx) => {
+    const item: any = {
+      role: msg.role,
+      content: msg.content,
+    };
+    if (idx === 0 && base64Image) {
+      const base64Data = base64Image.split(",")[1] || base64Image;
+      item.images = [base64Data];
+    }
+    return item;
+  });
+
+  if (config.system_prompt) {
+    mappedMessages.unshift({
+      role: "system",
+      content: config.system_prompt,
+    });
+  }
+
+  const bodyPayload = {
     model: config.model || "llama3",
-    prompt: prompt,
-    system: config.system_prompt,
+    messages: mappedMessages,
     stream: true,
   };
-
-  // Add multimodal image if available
-  if (base64Image) {
-    const base64Data = base64Image.split(",")[1] || base64Image;
-    bodyPayload.images = [base64Data];
-  }
 
   const response = await fetch(url, {
     method: "POST",
@@ -147,9 +164,10 @@ async function streamOllama(
         if (!line.trim()) continue;
         try {
           const json = JSON.parse(line);
-          if (json.response) {
-            onChunk(json.response);
-            fullText += json.response;
+          const content = json.message?.content;
+          if (content) {
+            onChunk(content);
+            fullText += content;
           }
         } catch (_) {
           // Ignore parse errors from incomplete stream lines
@@ -162,7 +180,6 @@ async function streamOllama(
 
   return fullText;
 }
-
 
 /**
  * Brace-balanced JSON streaming helper for Gemini/OpenAI
@@ -222,7 +239,7 @@ export function extractTextFromJSONChunks(buffer: string): { items: any[]; remai
  * Robust stream helper for Gemini
  */
 async function streamGemini(
-  prompt: string,
+  messages: ChatMessage[],
   base64Image: string | null,
   config: LlmConfig,
   onChunk: (chunk: string) => void
@@ -234,25 +251,40 @@ async function streamGemini(
   const model = config.model || "gemini-1.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${config.cloud_api_key}`;
 
-  const parts: any[] = [];
-  if (base64Image) {
-    const base64Data = base64Image.split(",")[1] || base64Image;
-    parts.push({
-      inlineData: {
-        mimeType: "image/png",
-        data: base64Data,
-      },
-    });
-  }
+  const contents: any[] = [];
 
-  // Combine instructions with request text
-  const fullPromptText = `${config.system_prompt}\n\nInput Japanese Text / Screen Segment:\n${prompt}`;
-  parts.push({ text: fullPromptText });
+  messages.forEach((msg, idx) => {
+    const role = msg.role === "assistant" ? "model" : "user";
+    const parts: any[] = [];
+
+    if (idx === 0 && base64Image) {
+      const base64Data = base64Image.split(",")[1] || base64Image;
+      parts.push({
+        inlineData: {
+          mimeType: "image/png",
+          data: base64Data,
+        },
+      });
+    }
+
+    parts.push({ text: msg.content });
+    contents.push({ role, parts });
+  });
+
+  const bodyPayload: any = {
+    contents,
+  };
+
+  if (config.system_prompt) {
+    bodyPayload.systemInstruction = {
+      parts: [{ text: config.system_prompt }],
+    };
+  }
 
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts }] }),
+    body: JSON.stringify(bodyPayload),
   });
 
   if (!response.ok) {
@@ -305,7 +337,7 @@ async function streamGemini(
  * Stream helper for OpenAI-compatible endpoints
  */
 async function streamOpenAICompatible(
-  prompt: string,
+  messages: ChatMessage[],
   base64Image: string | null,
   config: LlmConfig,
   onChunk: (chunk: string) => void
@@ -331,34 +363,40 @@ async function streamOpenAICompatible(
     headers["Authorization"] = `Bearer ${config.cloud_api_key}`;
   }
 
-  const messages: any[] = [
-    { role: "system", content: config.system_prompt },
-  ];
+  const mappedMessages: any[] = [];
 
-  // OpenAI Multimodal support (if image is present and using compatible model)
-  if (base64Image) {
-    messages.push({
-      role: "user",
-      content: [
-        { type: "text", text: prompt || "Analyze this Japanese text segment." },
-        {
-          type: "image_url",
-          image_url: {
-            url: base64Image, // OpenAI accepts data URLs natively
-          },
-        },
-      ],
-    });
-  } else {
-    messages.push({ role: "user", content: prompt });
+  if (config.system_prompt) {
+    mappedMessages.push({ role: "system", content: config.system_prompt });
   }
+
+  messages.forEach((msg, idx) => {
+    if (idx === 0 && base64Image) {
+      mappedMessages.push({
+        role: "user",
+        content: [
+          { type: "text", text: msg.content || "Analyze this Japanese text segment." },
+          {
+            type: "image_url",
+            image_url: {
+              url: base64Image.startsWith("data:") ? base64Image : `data:image/png;base64,${base64Image}`,
+            },
+          },
+        ],
+      });
+    } else {
+      mappedMessages.push({
+        role: msg.role,
+        content: msg.content,
+      });
+    }
+  });
 
   const response = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify({
       model: config.model || (isCloudOpenAI ? "gpt-4o" : "llama3"),
-      messages,
+      messages: mappedMessages,
       stream: true,
     }),
   });
