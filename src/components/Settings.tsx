@@ -98,6 +98,7 @@ export function Settings() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [recordingField, setRecordingField] = useState<'capture' | 'toggle' | null>(null);
+  const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'ocr' | 'ui'>('general');
 
   const handleCaptureRecordingChange = useCallback((recording: boolean) => {
     setRecordingField(recording ? 'capture' : null);
@@ -192,266 +193,356 @@ export function Settings() {
   }
 
   return (
-    <div className="w-screen h-screen bg-slate-950 text-white overflow-y-auto px-6 py-6 custom-scrollbar select-none">
-      {/* Header */}
-      <header className="flex justify-between items-center pb-5 border-b border-white/10 mb-6">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            AIna-sensei
-          </h1>
-          <p className="text-xs text-white/40 mt-1">Your visual AI tutor & assistant overlay. Configure hotkeys and LLM providers.</p>
+    <div className="flex h-screen w-screen bg-slate-950 text-white overflow-hidden select-none font-sans">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 bg-slate-900/40 border-r border-white/10 flex flex-col justify-between p-5 flex-shrink-0 backdrop-blur-xl">
+        <div className="space-y-6">
+          {/* Logo / Header */}
+          <div className="pb-4 border-b border-white/5">
+            <h1 className="text-lg font-black tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent uppercase">
+              AIna-sensei
+            </h1>
+            <p className="text-[10px] text-white/40 mt-0.5">Desktop Visual AI Tutor</p>
+          </div>
+
+          {/* Navigation Menu */}
+          <nav className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveTab("general")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all border cursor-pointer ${
+                activeTab === "general"
+                  ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                  : "bg-transparent border-transparent text-white/50 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              Global Hotkeys
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("ocr")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all border cursor-pointer ${
+                activeTab === "ocr"
+                  ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                  : "bg-transparent border-transparent text-white/50 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              OCR / Vision
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("ai")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all border cursor-pointer ${
+                activeTab === "ai"
+                  ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                  : "bg-transparent border-transparent text-white/50 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              AI Tutor Backend
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("ui")}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all border cursor-pointer ${
+                activeTab === "ui"
+                  ? "bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                  : "bg-transparent border-transparent text-white/50 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+              HUD Interface
+            </button>
+          </nav>
         </div>
-        <button
-          onClick={testCapture}
-          className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-md active:scale-95"
-        >
-          Test Snipper
-        </button>
-      </header>
 
-      {/* Settings Form */}
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-4xl pb-10">
-        
-        {/* Status Alerts */}
-        {successMsg && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-emerald-400 text-xs flex gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{successMsg}</span>
-          </div>
-        )}
-        {errorMsg && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs flex gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <span>{errorMsg}</span>
-          </div>
-        )}
-
-        {/* 1. Global Hotkeys Grid */}
-        <section className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 backdrop-blur shadow-sm">
-          <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-            </svg>
-            <h3 className="text-sm font-bold tracking-wide uppercase text-white/80">Global hotkeys</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">Capture Region (Snipper)</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={config.hotkeys.capture_region}
-                  readOnly
-                  placeholder="CommandOrControl+Shift+J"
-                  className="flex-1 bg-black/40 border border-white/15 focus:outline-none rounded-xl px-3 py-2 text-sm font-mono text-white/70 select-all cursor-default"
-                  required
-                />
-                <HotkeyRecorder
-                  onChange={(val) => updateConfigField("hotkeys", "capture_region", val)}
-                  onRecordingChange={handleCaptureRecordingChange}
-                />
-              </div>
-              {recordingField === 'capture' ? (
-                <span className="text-[10px] text-amber-400 mt-1 block font-semibold animate-pulse">
-                  ⚠️ Hold at least one modifier key (Ctrl, Alt, Shift, or Cmd) + press another key.
-                </span>
-              ) : (
-                <span className="text-[10px] text-white/30 mt-1 block">Cross-platform format. E.g., ctrl+shift+j or cmd+shift+j</span>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">Toggle Explanation HUD</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={config.hotkeys.toggle_overlay}
-                  readOnly
-                  placeholder="CommandOrControl+Shift+O"
-                  className="flex-1 bg-black/40 border border-white/15 focus:outline-none rounded-xl px-3 py-2 text-sm font-mono text-white/70 select-all cursor-default"
-                  required
-                />
-                <HotkeyRecorder
-                  onChange={(val) => updateConfigField("hotkeys", "toggle_overlay", val)}
-                  onRecordingChange={handleToggleRecordingChange}
-                />
-              </div>
-              {recordingField === 'toggle' ? (
-                <span className="text-[10px] text-amber-400 mt-1 block font-semibold animate-pulse">
-                  ⚠️ Hold at least one modifier key (Ctrl, Alt, Shift, or Cmd) + press another key.
-                </span>
-              ) : (
-                <span className="text-[10px] text-white/30 mt-1 block">Show or hide tutor HUD without resetting state.</span>
-              )}
-            </div>
-          </div>
-        </section>
-
-        {/* 2. OCR Configuration */}
-        <section className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 backdrop-blur shadow-sm">
-          <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <h3 className="text-sm font-bold tracking-wide uppercase text-white/80">OCR (Character Recognition)</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Mode</label>
-              <select
-                value={config.ocr.mode}
-                onChange={(e) => updateConfigField("ocr", "mode", e.target.value)}
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
-              >
-                <option value="cloud_vision">Google Cloud Vision API (Cloud)</option>
-                <option value="llm_multimodal">Direct LLM Multimodal (No OCR Key)</option>
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Cloud API Key</label>
-              <input
-                type="password"
-                value={config.ocr.api_key}
-                onChange={(e) => updateConfigField("ocr", "api_key", e.target.value)}
-                disabled={config.ocr.mode === "llm_multimodal"}
-                placeholder={config.ocr.mode === "llm_multimodal" ? "Not required in Multimodal mode" : "Google Vision API Key..."}
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* 3. LLM Configuration */}
-        <section className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 backdrop-blur shadow-sm">
-          <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <h3 className="text-sm font-bold tracking-wide uppercase text-white/80">Language Model (Tutor Backend)</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider</label>
-              <select
-                value={config.llm.provider}
-                onChange={(e) => updateConfigField("llm", "provider", e.target.value)}
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
-              >
-                <option value="ollama">Ollama (Local)</option>
-                <option value="gemini">Google Gemini (Cloud)</option>
-                <option value="openai">OpenAI (Cloud)</option>
-                <option value="custom">Custom OpenAI-Compatible</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">Model Identifier Name</label>
-              <input
-                type="text"
-                value={config.llm.model}
-                onChange={(e) => updateConfigField("llm", "model", e.target.value)}
-                placeholder="e.g. llama3, gemini-1.5-flash, gpt-4o"
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
-                required
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">API Endpoint URL</label>
-              <input
-                type="text"
-                value={config.llm.endpoint_url}
-                onChange={(e) => updateConfigField("llm", "endpoint_url", e.target.value)}
-                placeholder="e.g., http://localhost:11434"
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
-              />
-              <span className="text-[10px] text-white/30 mt-1 block">Leave empty for official cloud providers (Gemini/OpenAI defaults)</span>
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider Cloud API Key</label>
-              <input
-                type="password"
-                value={config.llm.cloud_api_key}
-                onChange={(e) => updateConfigField("llm", "cloud_api_key", e.target.value)}
-                disabled={config.llm.provider === "ollama"}
-                placeholder={config.llm.provider === "ollama" ? "Not required for Local Ollama" : "Enter API Key..."}
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <div className="flex justify-between items-center mb-1.5">
-                <label className="block text-xs font-semibold text-white/50">Tutor System Prompt</label>
-                <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">
-                  Use {"{extracted_text}"} for substitutions
-                </span>
-              </div>
-              <textarea
-                value={config.llm.system_prompt}
-                onChange={(e) => updateConfigField("llm", "system_prompt", e.target.value)}
-                rows={5}
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-xs text-white outline-none transition-all resize-none font-mono"
-                required
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* 4. UI styling options */}
-        <section className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4 backdrop-blur shadow-sm">
-          <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-            </svg>
-            <h3 className="text-sm font-bold tracking-wide uppercase text-white/80">UI settings</h3>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between bg-black/20 border border-white/5 p-3 rounded-xl">
-              <div>
-                <label className="block text-xs font-semibold text-white/80">Always on Top</label>
-                <span className="text-[10px] text-white/30 block mt-0.5">Keep Explanation HUD overlay floating on top.</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={config.ui.always_on_top}
-                onChange={(e) => updateConfigField("ui", "always_on_top", e.target.checked)}
-                className="w-4 h-4 rounded text-blue-500 border-white/10 bg-black/40 focus:ring-blue-500 cursor-pointer"
-              />
-            </div>
-            
-            <div className="flex items-center justify-between bg-black/20 border border-white/5 p-3 rounded-xl">
-              <div className="flex-1 mr-4">
-                <label className="block text-xs font-semibold text-white/80">Overlay Opacity</label>
-                <span className="text-[10px] text-white/30 block mt-0.5">Background transparency of tutor HUD overlay.</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="0.5"
-                  max="1.0"
-                  step="0.05"
-                  value={config.ui.overlay_opacity}
-                  onChange={(e) => updateConfigField("ui", "overlay_opacity", parseFloat(e.target.value))}
-                  className="w-24 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
-                <span className="text-xs font-mono w-8 text-right">{Math.round(config.ui.overlay_opacity * 100)}%</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Action Controls */}
-        <div className="flex justify-end gap-3 pt-4">
+        {/* Sidebar Footer: Save Button & Test button */}
+        <div className="space-y-3 pt-4 border-t border-white/5">
           <button
-            type="submit"
-            disabled={saving}
-            className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-500/10 active:scale-95 cursor-pointer"
+            type="button"
+            onClick={testCapture}
+            className="w-full bg-white/5 hover:bg-white/10 text-white/80 border border-white/10 px-3.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all shadow-sm active:scale-95 cursor-pointer flex items-center justify-center gap-2"
           >
-            {saving ? "Saving settings..." : "Save changes"}
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Test Snipper
+          </button>
+
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg shadow-blue-500/10 active:scale-95 cursor-pointer"
+          >
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
+      </aside>
 
-      </form>
+      {/* Main Content Pane */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
+        {/* Status Alerts Bar */}
+        {(successMsg || errorMsg) && (
+          <div className="px-8 pt-6">
+            {successMsg && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-emerald-400 text-xs flex gap-2 animate-fade-in">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{successMsg}</span>
+              </div>
+            )}
+            {errorMsg && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs flex gap-2 animate-fade-in">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{errorMsg}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab Title Area */}
+        <div className="px-8 pt-6 pb-2">
+          {activeTab === "general" && (
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">Global Hotkeys</h2>
+              <p className="text-xs text-white/40 mt-0.5">Define regional screenshot triggers and overlay visibility keys.</p>
+            </div>
+          )}
+          {activeTab === "ocr" && (
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">OCR & Character Recognition</h2>
+              <p className="text-xs text-white/40 mt-0.5">Configure target OCR languages and Google Cloud Vision integration credentials.</p>
+            </div>
+          )}
+          {activeTab === "ai" && (
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">AI Tutor Configuration</h2>
+              <p className="text-xs text-white/40 mt-0.5">Select local LLM servers or cloud endpoints and customize system instruction prompts.</p>
+            </div>
+          )}
+          {activeTab === "ui" && (
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">Interface & HUD Settings</h2>
+              <p className="text-xs text-white/40 mt-0.5">Style the overlay HUD layout, control transparency, and window behaviors.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Active Content Scroll Area */}
+        <div className="flex-1 overflow-y-auto px-8 py-4 pb-12 custom-scrollbar">
+          <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+            {/* RENDER ACTIVE TAB */}
+            {activeTab === "general" && (
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-1.5">Capture Region (Snipper)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={config.hotkeys.capture_region}
+                      readOnly
+                      placeholder="CommandOrControl+Shift+J"
+                      className="flex-1 bg-black/40 border border-white/15 focus:outline-none rounded-xl px-3 py-2 text-sm font-mono text-white/70 select-all cursor-default"
+                      required
+                    />
+                    <HotkeyRecorder
+                      onChange={(val) => updateConfigField("hotkeys", "capture_region", val)}
+                      onRecordingChange={handleCaptureRecordingChange}
+                    />
+                  </div>
+                  {recordingField === 'capture' ? (
+                    <span className="text-[10px] text-amber-400 mt-1 block font-semibold animate-pulse">
+                      ⚠️ Hold at least one modifier key (Ctrl, Alt, Shift, or Cmd) + press another key.
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/30 mt-1 block">Cross-platform format. E.g., ctrl+shift+j or cmd+shift+j</span>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-1.5">Toggle Explanation HUD</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={config.hotkeys.toggle_overlay}
+                      readOnly
+                      placeholder="CommandOrControl+Shift+O"
+                      className="flex-1 bg-black/40 border border-white/15 focus:outline-none rounded-xl px-3 py-2 text-sm font-mono text-white/70 select-all cursor-default"
+                      required
+                    />
+                    <HotkeyRecorder
+                      onChange={(val) => updateConfigField("hotkeys", "toggle_overlay", val)}
+                      onRecordingChange={handleToggleRecordingChange}
+                    />
+                  </div>
+                  {recordingField === 'toggle' ? (
+                    <span className="text-[10px] text-amber-400 mt-1 block font-semibold animate-pulse">
+                      ⚠️ Hold at least one modifier key (Ctrl, Alt, Shift, or Cmd) + press another key.
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-white/30 mt-1 block">Show or hide tutor HUD without resetting state.</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "ocr" && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Mode</label>
+                    <select
+                      value={config.ocr.mode}
+                      onChange={(e) => updateConfigField("ocr", "mode", e.target.value)}
+                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                    >
+                      <option value="cloud_vision">Google Cloud Vision API (Cloud)</option>
+                      <option value="llm_multimodal">Direct LLM Multimodal (No OCR Key)</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Cloud API Key</label>
+                    <input
+                      type="password"
+                      value={config.ocr.api_key}
+                      onChange={(e) => updateConfigField("ocr", "api_key", e.target.value)}
+                      disabled={config.ocr.mode === "llm_multimodal"}
+                      placeholder={config.ocr.mode === "llm_multimodal" ? "Not required in Multimodal mode" : "Google Vision API Key..."}
+                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "ai" && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider</label>
+                    <select
+                      value={config.llm.provider}
+                      onChange={(e) => updateConfigField("llm", "provider", e.target.value)}
+                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                    >
+                      <option value="ollama">Ollama (Local)</option>
+                      <option value="gemini">Google Gemini (Cloud)</option>
+                      <option value="openai">OpenAI (Cloud)</option>
+                      <option value="custom">Custom OpenAI-Compatible</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5">Model Identifier Name</label>
+                    <input
+                      type="text"
+                      value={config.llm.model}
+                      onChange={(e) => updateConfigField("llm", "model", e.target.value)}
+                      placeholder="e.g. llama3, gemini-1.5-flash, gpt-4o"
+                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-1.5">API Endpoint URL</label>
+                  <input
+                    type="text"
+                    value={config.llm.endpoint_url}
+                    onChange={(e) => updateConfigField("llm", "endpoint_url", e.target.value)}
+                    placeholder="e.g., http://localhost:11434"
+                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                  />
+                  <span className="text-[10px] text-white/30 mt-1 block">Leave empty for official cloud providers (Gemini/OpenAI defaults)</span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider Cloud API Key</label>
+                  <input
+                    type="password"
+                    value={config.llm.cloud_api_key}
+                    onChange={(e) => updateConfigField("llm", "cloud_api_key", e.target.value)}
+                    disabled={config.llm.provider === "ollama"}
+                    placeholder={config.llm.provider === "ollama" ? "Not required for Local Ollama" : "Enter API Key..."}
+                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs font-semibold text-white/50">Tutor System Prompt</label>
+                    <span className="text-[10px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">
+                      Use {"{extracted_text}"} for substitutions
+                    </span>
+                  </div>
+                  <textarea
+                    value={config.llm.system_prompt}
+                    onChange={(e) => updateConfigField("llm", "system_prompt", e.target.value)}
+                    rows={12}
+                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-xs text-white outline-none transition-all resize-none font-mono"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === "ui" && (
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between bg-black/20 border border-white/5 p-4 rounded-xl">
+                    <div>
+                      <label className="block text-xs font-semibold text-white/80">Always on Top</label>
+                      <span className="text-[10px] text-white/30 block mt-0.5">Keep Explanation HUD overlay floating on top.</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={config.ui.always_on_top}
+                      onChange={(e) => updateConfigField("ui", "always_on_top", e.target.checked)}
+                      className="w-4 h-4 rounded text-blue-500 border-white/10 bg-black/40 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center justify-between bg-black/20 border border-white/5 p-4 rounded-xl">
+                    <div className="flex-1 mr-4">
+                      <label className="block text-xs font-semibold text-white/80">Overlay Opacity</label>
+                      <span className="text-[10px] text-white/30 block mt-0.5">Background transparency of tutor HUD overlay.</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="1.0"
+                        step="0.05"
+                        value={config.ui.overlay_opacity}
+                        onChange={(e) => updateConfigField("ui", "overlay_opacity", parseFloat(e.target.value))}
+                        className="w-24 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      />
+                      <span className="text-xs font-mono w-8 text-right">{Math.round(config.ui.overlay_opacity * 100)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </form>
+        </div>
+      </main>
     </div>
   );
 }
