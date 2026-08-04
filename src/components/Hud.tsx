@@ -103,8 +103,14 @@ export function Hud() {
       }
     });
 
+    // Listen for config changes from the Settings window
+    const unlistenConfigPromise = listen("config-updated", () => {
+      fetchConfig();
+    });
+
     return () => {
       unlistenPromise.then((unlisten) => unlisten());
+      unlistenConfigPromise.then((unlisten) => unlisten());
     };
   }, []);
 

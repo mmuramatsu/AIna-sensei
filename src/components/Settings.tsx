@@ -1,12 +1,129 @@
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../lib/types";
+
+interface HotkeyRecorderProps {
+  onChange: (newValue: string) => void;
+  onRecordingChange?: (recording: boolean) => void;
+}
+
+function HotkeyRecorder({ onChange, onRecordingChange }: HotkeyRecorderProps) {
+  const [isRecording, setIsRecording] = useState(false);
+
+  useEffect(() => {
+    onRecordingChange?.(isRecording);
+  }, [isRecording, onRecordingChange]);
+
+  useEffect(() => {
+    if (!isRecording) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // If the user just pressed escape to cancel recording
+      if (e.key === "Escape") {
+        setIsRecording(false);
+        return;
+      }
+
+      // Ignore modifier keys as the final key
+      const isModifier = ["Control", "Shift", "Alt", "Meta", "CapsLock"].includes(e.key);
+      if (isModifier) return;
+
+      // Enforce at least one modifier key is pressed
+      const hasModifier = e.ctrlKey || e.metaKey || e.altKey || e.shiftKey;
+      if (!hasModifier) return;
+
+      const parts: string[] = [];
+
+      // Detect modifiers
+      if (e.ctrlKey || e.metaKey) {
+        parts.push("CommandOrControl");
+      }
+      if (e.altKey) {
+        parts.push("Alt");
+      }
+      if (e.shiftKey) {
+        parts.push("Shift");
+      }
+
+      // Map key code nicely (e.g. KeyJ -> J, Digit1 -> 1, F10 -> F10)
+      let keyName = e.key;
+      
+      // Normalize letters to uppercase
+      if (keyName.length === 1) {
+        keyName = keyName.toUpperCase();
+      }
+
+      // Map arrow keys and special keys nicely for Tauri
+      if (keyName === "ArrowUp") keyName = "Up";
+      if (keyName === "ArrowDown") keyName = "Down";
+      if (keyName === "ArrowLeft") keyName = "Left";
+      if (keyName === "ArrowRight") keyName = "Right";
+      if (keyName === " ") keyName = "Space";
+
+      parts.push(keyName);
+
+      const hotkeyStr = parts.join("+");
+      onChange(hotkeyStr);
+      setIsRecording(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+    };
+  }, [isRecording, onChange]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setIsRecording(!isRecording)}
+      className={`px-3 py-2 rounded-xl border text-xs font-semibold tracking-wide transition-all shadow-md select-none min-w-[120px] active:scale-95 cursor-pointer ${
+        isRecording
+          ? "bg-red-500/20 border-red-500/40 text-red-400 animate-pulse"
+          : "bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20"
+      }`}
+    >
+      {isRecording ? "Press key..." : "Record Key"}
+    </button>
+  );
+}
 
 export function Settings() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [recordingField, setRecordingField] = useState<'capture' | 'toggle' | null>(null);
+
+  const handleCaptureRecordingChange = useCallback((recording: boolean) => {
+    setRecordingField(recording ? 'capture' : null);
+  }, []);
+
+  const handleToggleRecordingChange = useCallback((recording: boolean) => {
+    setRecordingField(recording ? 'toggle' : null);
+  }, []);
+
+  // Block default browser shortcuts (Ctrl+P, Ctrl+S, Ctrl+F, etc.) globally in Settings window
+  useEffect(() => {
+    const blockBrowserShortcuts = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey;
+      if (isCtrl) {
+        const key = e.key.toLowerCase();
+        if (["p", "s", "f", "g", "h", "o", "n"].includes(key)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+    window.addEventListener("keydown", blockBrowserShortcuts, true);
+    return () => {
+      window.removeEventListener("keydown", blockBrowserShortcuts, true);
+    };
+  }, []);
 
   // Fetch configuration on mount
   useEffect(() => {
@@ -33,6 +150,7 @@ export function Settings() {
     try {
       await invoke("save_config", { config });
       setSuccessMsg("Configuration saved and hotkeys re-registered successfully!");
+      await emit("config-updated");
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
@@ -123,27 +241,51 @@ export function Settings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-white/50 mb-1.5">Capture Region (Snipper)</label>
-              <input
-                type="text"
-                value={config.hotkeys.capture_region}
-                onChange={(e) => updateConfigField("hotkeys", "capture_region", e.target.value)}
-                placeholder="CommandOrControl+Shift+J"
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm font-mono text-white outline-none transition-all"
-                required
-              />
-              <span className="text-[10px] text-white/30 mt-1 block">Cross-platform format. E.g., ctrl+shift+j or cmd+shift+j</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={config.hotkeys.capture_region}
+                  readOnly
+                  placeholder="CommandOrControl+Shift+J"
+                  className="flex-1 bg-black/40 border border-white/15 focus:outline-none rounded-xl px-3 py-2 text-sm font-mono text-white/70 select-all cursor-default"
+                  required
+                />
+                <HotkeyRecorder
+                  onChange={(val) => updateConfigField("hotkeys", "capture_region", val)}
+                  onRecordingChange={handleCaptureRecordingChange}
+                />
+              </div>
+              {recordingField === 'capture' ? (
+                <span className="text-[10px] text-amber-400 mt-1 block font-semibold animate-pulse">
+                  ⚠️ Hold at least one modifier key (Ctrl, Alt, Shift, or Cmd) + press another key.
+                </span>
+              ) : (
+                <span className="text-[10px] text-white/30 mt-1 block">Cross-platform format. E.g., ctrl+shift+j or cmd+shift+j</span>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-white/50 mb-1.5">Toggle Explanation HUD</label>
-              <input
-                type="text"
-                value={config.hotkeys.toggle_overlay}
-                onChange={(e) => updateConfigField("hotkeys", "toggle_overlay", e.target.value)}
-                placeholder="CommandOrControl+Shift+O"
-                className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm font-mono text-white outline-none transition-all"
-                required
-              />
-              <span className="text-[10px] text-white/30 mt-1 block">Show or hide tutor HUD without resetting state.</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={config.hotkeys.toggle_overlay}
+                  readOnly
+                  placeholder="CommandOrControl+Shift+O"
+                  className="flex-1 bg-black/40 border border-white/15 focus:outline-none rounded-xl px-3 py-2 text-sm font-mono text-white/70 select-all cursor-default"
+                  required
+                />
+                <HotkeyRecorder
+                  onChange={(val) => updateConfigField("hotkeys", "toggle_overlay", val)}
+                  onRecordingChange={handleToggleRecordingChange}
+                />
+              </div>
+              {recordingField === 'toggle' ? (
+                <span className="text-[10px] text-amber-400 mt-1 block font-semibold animate-pulse">
+                  ⚠️ Hold at least one modifier key (Ctrl, Alt, Shift, or Cmd) + press another key.
+                </span>
+              ) : (
+                <span className="text-[10px] text-white/30 mt-1 block">Show or hide tutor HUD without resetting state.</span>
+              )}
             </div>
           </div>
         </section>
