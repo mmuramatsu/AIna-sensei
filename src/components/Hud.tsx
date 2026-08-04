@@ -87,7 +87,7 @@ export function Hud() {
         // 3. Query LLM and Stream results
         await performLlmQuery(
           finalPrompt,
-          imageBase64, // Send image for multimodal if provider supports it
+          detectedText ? null : imageBase64, // Send image ONLY if OCR failed/bypassed
           currentConfig.llm,
           (chunk) => {
             setExplanation((prev) => prev + chunk);
