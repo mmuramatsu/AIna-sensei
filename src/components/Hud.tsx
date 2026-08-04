@@ -7,6 +7,77 @@ import { performOcr, performLlmQuery } from "../services/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const markdownComponents = {
+  h1: ({ node, ...props }: any) => (
+    <h2 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mt-6 mb-3" {...props} />
+  ),
+  h2: ({ node, ...props }: any) => (
+    <h3 className="text-base font-bold text-indigo-400 mt-5 mb-2 border-b border-white/5 pb-1" {...props} />
+  ),
+  h3: ({ node, ...props }: any) => (
+    <h4 className="text-sm font-semibold text-blue-400 mt-4 mb-2 tracking-wide uppercase" {...props} />
+  ),
+  p: ({ node, ...props }: any) => (
+    <p className="text-white/80 text-sm leading-relaxed my-1.5 pl-1" {...props} />
+  ),
+  strong: ({ node, ...props }: any) => (
+    <strong className="text-yellow-300 font-bold bg-yellow-500/5 px-1 py-0.5 rounded border border-yellow-500/10" {...props} />
+  ),
+  ul: ({ node, ...props }: any) => (
+    <ul className="list-disc pl-5 my-2 space-y-1" {...props} />
+  ),
+  ol: ({ node, ...props }: any) => (
+    <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />
+  ),
+  li: ({ node, ...props }: any) => (
+    <li className="text-white/80 text-sm leading-relaxed my-1" {...props} />
+  ),
+  blockquote: ({ node, ...props }: any) => (
+    <blockquote className="border-l-4 border-indigo-500/40 bg-indigo-500/5 pl-3 py-1 my-2 rounded-r italic text-white/70 text-sm" {...props} />
+  ),
+  a: ({ node, ...props }: any) => (
+    <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
+  ),
+  hr: ({ node, ...props }: any) => (
+    <hr className="border-white/10 my-4" {...props} />
+  ),
+  table: ({ node, ...props }: any) => (
+    <div className="overflow-x-auto my-3 rounded-lg border border-white/10 custom-scrollbar">
+      <table className="min-w-full divide-y divide-white/10 bg-white/5" {...props} />
+    </div>
+  ),
+  thead: ({ node, ...props }: any) => (
+    <thead className="bg-white/10" {...props} />
+  ),
+  tbody: ({ node, ...props }: any) => (
+    <tbody className="divide-y divide-white/5 bg-black/20" {...props} />
+  ),
+  tr: ({ node, ...props }: any) => (
+    <tr className="hover:bg-white/5 transition-colors" {...props} />
+  ),
+  th: ({ node, ...props }: any) => (
+    <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-blue-300 border-r border-white/10 last:border-r-0" {...props} />
+  ),
+  td: ({ node, ...props }: any) => (
+    <td className="px-3 py-2 text-xs text-white/80 border-r border-white/5 last:border-r-0 whitespace-nowrap" {...props} />
+  ),
+  code: ({ node, className, children, ...props }: any) => {
+    const match = /language-(\w+)/.exec(className || '');
+    const inline = !match;
+    return inline ? (
+      <code className="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-indigo-300" {...props}>
+        {children}
+      </code>
+    ) : (
+      <pre className="bg-black/50 p-2 rounded overflow-x-auto my-2 border border-white/5">
+        <code className="font-mono text-xs text-indigo-300" {...props}>
+          {children}
+        </code>
+      </pre>
+    );
+  }
+};
+
 export function Hud() {
   const [loading, setLoading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -301,76 +372,7 @@ export function Hud() {
             {/* Formatted streamed response */}
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
-              components={{
-                h1: ({ node, ...props }) => (
-                  <h2 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mt-6 mb-3" {...props} />
-                ),
-                h2: ({ node, ...props }) => (
-                  <h3 className="text-base font-bold text-indigo-400 mt-5 mb-2 border-b border-white/5 pb-1" {...props} />
-                ),
-                h3: ({ node, ...props }) => (
-                  <h4 className="text-sm font-semibold text-blue-400 mt-4 mb-2 tracking-wide uppercase" {...props} />
-                ),
-                p: ({ node, ...props }) => (
-                  <p className="text-white/80 text-sm leading-relaxed my-1.5 pl-1" {...props} />
-                ),
-                strong: ({ node, ...props }) => (
-                  <strong className="text-yellow-300 font-bold bg-yellow-500/5 px-1 py-0.5 rounded border border-yellow-500/10" {...props} />
-                ),
-                ul: ({ node, ...props }) => (
-                  <ul className="list-disc pl-5 my-2 space-y-1" {...props} />
-                ),
-                ol: ({ node, ...props }) => (
-                  <ol className="list-decimal pl-5 my-2 space-y-1" {...props} />
-                ),
-                li: ({ node, ...props }) => (
-                  <li className="text-white/80 text-sm leading-relaxed my-1" {...props} />
-                ),
-                blockquote: ({ node, ...props }) => (
-                  <blockquote className="border-l-4 border-indigo-500/40 bg-indigo-500/5 pl-3 py-1 my-2 rounded-r italic text-white/70 text-sm" {...props} />
-                ),
-                a: ({ node, ...props }) => (
-                  <a className="text-blue-400 hover:text-blue-300 underline" {...props} />
-                ),
-                hr: ({ node, ...props }) => (
-                  <hr className="border-white/10 my-4" {...props} />
-                ),
-                table: ({ node, ...props }) => (
-                  <div className="overflow-x-auto my-3 rounded-lg border border-white/10 custom-scrollbar">
-                    <table className="min-w-full divide-y divide-white/10 bg-white/5" {...props} />
-                  </div>
-                ),
-                thead: ({ node, ...props }) => (
-                  <thead className="bg-white/10" {...props} />
-                ),
-                tbody: ({ node, ...props }) => (
-                  <tbody className="divide-y divide-white/5 bg-black/20" {...props} />
-                ),
-                tr: ({ node, ...props }) => (
-                  <tr className="hover:bg-white/5 transition-colors" {...props} />
-                ),
-                th: ({ node, ...props }) => (
-                  <th className="px-3 py-2 text-left text-xs font-bold uppercase tracking-wider text-blue-300 border-r border-white/10 last:border-r-0" {...props} />
-                ),
-                td: ({ node, ...props }) => (
-                  <td className="px-3 py-2 text-xs text-white/80 border-r border-white/5 last:border-r-0 whitespace-nowrap" {...props} />
-                ),
-                code: ({ node, className, children, ...props }: any) => {
-                  const match = /language-(\w+)/.exec(className || '');
-                  const inline = !match;
-                  return inline ? (
-                    <code className="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-indigo-300" {...props}>
-                      {children}
-                    </code>
-                  ) : (
-                    <pre className="bg-black/50 p-2 rounded overflow-x-auto my-2 border border-white/5">
-                      <code className="font-mono text-xs text-indigo-300" {...props}>
-                        {children}
-                      </code>
-                    </pre>
-                  );
-                }
-              }}
+              components={markdownComponents}
             >
               {cleanExplanation(explanation)}
             </ReactMarkdown>
