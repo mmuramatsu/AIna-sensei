@@ -405,7 +405,7 @@ export function Settings() {
 
             {activeTab === "ocr" && (
               <div className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Mode</label>
                     <select
@@ -417,17 +417,34 @@ export function Settings() {
                       <option value="llm_multimodal">Direct LLM Multimodal (No OCR Key)</option>
                     </select>
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Cloud API Key</label>
-                    <input
-                      type="password"
-                      value={config.ocr.api_key}
-                      onChange={(e) => updateConfigField("ocr", "api_key", e.target.value)}
-                      disabled={config.ocr.mode === "llm_multimodal"}
-                      placeholder={config.ocr.mode === "llm_multimodal" ? "Not required in Multimodal mode" : "Google Vision API Key..."}
-                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
-                    />
+                  <div>
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5">Target Recognition Language</label>
+                    <select
+                      value={config.ocr.target_language}
+                      onChange={(e) => updateConfigField("ocr", "target_language", e.target.value)}
+                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                    >
+                      <option value="ja">Japanese (ja)</option>
+                      <option value="en">English (en)</option>
+                      <option value="es">Spanish (es)</option>
+                      <option value="zh">Chinese (zh)</option>
+                      <option value="ko">Korean (ko)</option>
+                      <option value="fr">French (fr)</option>
+                      <option value="de">German (de)</option>
+                    </select>
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Cloud API Key</label>
+                  <input
+                    type="password"
+                    value={config.ocr.api_key}
+                    onChange={(e) => updateConfigField("ocr", "api_key", e.target.value)}
+                    disabled={config.ocr.mode === "llm_multimodal"}
+                    placeholder={config.ocr.mode === "llm_multimodal" ? "Not required in Multimodal mode" : "Google Vision API Key..."}
+                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                  />
                 </div>
               </div>
             )}
