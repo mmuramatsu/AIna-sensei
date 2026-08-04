@@ -94,6 +94,7 @@ function HotkeyRecorder({ onChange, onRecordingChange }: HotkeyRecorderProps) {
 
 export function Settings() {
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [originalConfig, setOriginalConfig] = useState<AppConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -132,6 +133,7 @@ export function Settings() {
       try {
         const loadedConfig = await invoke<AppConfig>("load_config");
         setConfig(loadedConfig);
+        setOriginalConfig(loadedConfig);
       } catch (err) {
         console.error("Failed to load config in Settings:", err);
         setErrorMsg("Failed to load configuration files.");
@@ -151,6 +153,7 @@ export function Settings() {
     try {
       await invoke("save_config", { config });
       setSuccessMsg("Configuration saved and hotkeys re-registered successfully!");
+      setOriginalConfig(config);
       await emit("config-updated");
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -182,6 +185,8 @@ export function Settings() {
       console.error("Failed to test capture:", err);
     }
   };
+
+  const hasUnsavedChanges = config && originalConfig && JSON.stringify(config) !== JSON.stringify(originalConfig);
 
   if (!config) {
     return (
@@ -283,13 +288,30 @@ export function Settings() {
             Test Snipper
           </button>
 
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg shadow-blue-500/10 active:scale-95 cursor-pointer"
-          >
-            {saving ? "Saving..." : "Save Changes"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider py-3 rounded-xl transition-all shadow-lg shadow-blue-500/10 active:scale-95 cursor-pointer"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+
+            {hasUnsavedChanges && (
+              <div 
+                className="relative group flex items-center justify-center w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 cursor-help flex-shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {/* Custom Tooltip */}
+                <div className="absolute bottom-full right-0 mb-2 w-48 hidden group-hover:block bg-slate-900 border border-white/10 text-white text-[10px] p-2.5 rounded-lg shadow-xl leading-normal z-50 pointer-events-none text-center">
+                  There are unsaved changes. Save settings to apply them.
+                  <div className="absolute top-full right-4 -mt-1 border-4 border-transparent border-t-slate-900" />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 
