@@ -9,13 +9,15 @@ Though initialized with a Japanese language focus, AIna-sensei is fully general-
 ## 🌟 Key Features
 
 *   **Snipping Tool Workflow (Targeted OCR):** Trigger regional click-and-drag screen selection instantly using a system-wide hotkey. High-performance SVG masking isolates your selection with zero desktop lag.
-*   **On-Demand Explanation HUD:** Renders a frameless, semi-transparent, glassmorphic HUD card directly over your active workspace. Features resizability, collapsible blocks, text copying, and an "Always on Top" pin.
+*   **Interactive Conversational Tutor (HUD Chat):** Continue the conversation directly inside the HUD. Ask follow-up questions about specific elements in the captured segment. The AI retains context of the OCR text and previous messages.
+*   **Smart Chat Input UX:** Chat input auto-expands up to 6 lines to handle long prompts cleanly, adding an inner scrollbar beyond that. Press `Enter` to submit instantly, or `Shift + Enter` to insert a newline.
+*   **On-Demand Explanation HUD:** Renders a frameless, semi-transparent, glassmorphic HUD card directly over your active workspace. Features resizability, scrollable chat feeds, text copying, and an "Always on Top" pin.
 *   **Real-time Streaming Responses:** Streams explanations from local or cloud models, parsing headers, lists, bullet points, and highlight terms in real-time.
 *   **Multi-Provider LLM Integration:** Dynamically switches between:
     *   **Local Models:** Ollama, LM Studio, or local OpenAI-compatible endpoints.
     *   **Cloud APIs:** Google Gemini (AI Studio), OpenAI, or Anthropic.
-*   **Direct Multimodal Fallback:** If you do not have a Cloud Vision OCR API Key, AIna-sensei can send the cropped image directly to multimodal models (like `gemini-1.5-flash` or `minicpm-v` in LM Studio) for native visual transcribing and breakdown.
-*   **Interactive Configuration GUI:** Accessible at any time via the system tray icon to customize providers, API keys, models, themes, and system prompt templates.
+*   **Direct Multimodal Fallback:** If you do not have a Cloud Vision OCR API Key, AIna-sensei sends the cropped image directly to multimodal models (like `gemini-1.5-flash` or `minicpm-v` in LM Studio) for native visual transcribing and breakdown.
+*   **Interactive Configuration GUI:** Accessible at any time via the system tray icon to customize providers, API keys, models, themes, global hotkeys, and system prompt templates.
 
 ---
 
@@ -80,7 +82,7 @@ Settings are saved locally inside a standard app data directory (e.g. `AppData/R
     "cloud_api_key": "",
     "endpoint_url": "http://localhost:11434",
     "model": "llama3",
-    "system_prompt": "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. Romaji transcription\n2. Natural English Translation\n3. Vocabulary Breakdown with Furigana\n4. Concise Grammar Points."
+    "system_prompt": "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. The extracted text\n2. Romaji transcription\n3. Natural English Translation\n4. Vocabulary Breakdown with Furigana\n5. Concise Grammar Points."
   },
   "ocr": {
     "mode": "cloud_vision",
