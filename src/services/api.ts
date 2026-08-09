@@ -1,27 +1,50 @@
 import { invoke } from "@tauri-apps/api/core";
 
-// Types matching the Rust backend definitions
+/**
+ * Configuration schema for the Character Recognition (OCR) engine.
+ */
 export interface OcrConfig {
+  /** OCR pipeline mode ('cloud_vision' or 'llm_multimodal') */
   mode: string;
+  /** Google Cloud Vision API Key */
   api_key: string;
+  /** Primary target language code (e.g. 'ja', 'en') */
   target_language: string;
 }
 
+/**
+ * Configuration schema for the Large Language Model provider.
+ */
 export interface LlmConfig {
+  /** Targeted provider engine (e.g., 'ollama', 'gemini', 'openai') */
   provider: string;
+  /** API key for cloud models (Gemini/OpenAI) */
   cloud_api_key: string;
+  /** Targeted endpoint connection URL */
   endpoint_url: string;
+  /** Model identifier name (e.g., 'llama3', 'gpt-4o') */
   model: string;
+  /** Custom instructions prompt for Japanese tutoring analysis */
   system_prompt: string;
 }
 
+/**
+ * Defines a single message turn in a conversational history.
+ */
 export interface ChatMessage {
+  /** The author of the message ('user' or 'assistant') */
   role: "user" | "assistant";
+  /** The text content of the message */
   content: string;
 }
 
 /**
- * Perform Optical Character Recognition on a base64-encoded PNG image using Google Cloud Vision API.
+ * Performs Optical Character Recognition on a base64-encoded PNG image using Google Cloud Vision API.
+ * 
+ * @param base64Image - The raw screenshot image data as base64.
+ * @param config - OCR configuration options containing the API key and target language.
+ * @returns The extracted text description.
+ * @throws Error if the key is missing or the vision request fails.
  */
 export async function performOcr(base64Image: string, config: OcrConfig): Promise<string> {
   if (config.mode !== "cloud_vision") {
@@ -75,7 +98,13 @@ export async function performOcr(base64Image: string, config: OcrConfig): Promis
 }
 
 /**
- * Sends a query to the configured LLM provider and streams the result back.
+ * Sends a query (including conversation history) to the configured LLM provider and streams the result.
+ *
+ * @param messages - An array of ChatMessage turns representing the conversation history.
+ * @param base64Image - Optional base64-encoded PNG screenshot (sent only on the first turn if OCR failed/bypassed).
+ * @param config - Large Language Model provider settings.
+ * @param onChunk - Callback triggered whenever a new text chunk is streamed back from the model.
+ * @returns A promise resolving to the fully concatenated response string.
  */
 export async function performLlmQuery(
   messages: ChatMessage[],
@@ -97,7 +126,7 @@ export async function performLlmQuery(
 }
 
 /**
- * Stream helper for Ollama endpoint
+ * Helper to query Ollama's /api/chat streaming endpoint.
  */
 async function streamOllama(
   messages: ChatMessage[],
@@ -182,7 +211,11 @@ async function streamOllama(
 }
 
 /**
- * Brace-balanced JSON streaming helper for Gemini/OpenAI
+ * Extracts individual brace-balanced JSON objects from a stream buffer chunk.
+ * Used to parse fragmented streaming payloads from Google Gemini and OpenAI.
+ *
+ * @param buffer - The raw concatenated JSON stream characters.
+ * @returns An object containing array of parsed JSON objects and the remaining unparsed buffer.
  */
 export function extractTextFromJSONChunks(buffer: string): { items: any[]; remaining: string } {
   const items: any[] = [];
@@ -236,7 +269,7 @@ export function extractTextFromJSONChunks(buffer: string): { items: any[]; remai
 }
 
 /**
- * Robust stream helper for Gemini
+ * Helper to query Google Gemini's streamGenerateContent endpoint.
  */
 async function streamGemini(
   messages: ChatMessage[],
@@ -334,7 +367,7 @@ async function streamGemini(
 }
 
 /**
- * Stream helper for OpenAI-compatible endpoints
+ * Helper to query OpenAI-compatible Chat Completions API streaming endpoint.
  */
 async function streamOpenAICompatible(
   messages: ChatMessage[],
