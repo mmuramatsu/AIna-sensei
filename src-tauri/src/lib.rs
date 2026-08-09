@@ -1,4 +1,14 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+//! # AIna-sensei Tauri Backend Library
+//!
+//! This library provides the Rust-side backend interface for the AIna-sensei desktop application.
+//! It is responsible for:
+//! - Managing application state (cached regional screenshot buffers, scaling factors, hotkeys).
+//! - Reading, writing, and loading the JSON config file (`config.json`).
+//! - Intercepting and registering global shortcuts using Tauri plugins.
+//! - Capturing and cropping regional screenshots on active displays.
+//! - Handling inter-window controls (settings window, transparent snipping overlay, and docked HUD panel).
+//! - Providing system tray menus and handling close/quit events.
+
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -15,52 +25,79 @@ use tauri::{
 };
 use serde::{Deserialize, Serialize};
 
-// AppState holds the cached screenshot and current active hotkey shortcuts
+/// Holds the active runtime state shared across the Tauri application contexts.
 pub struct AppState {
+    /// Cached buffer containing the last captured full-screen image.
     pub last_capture: Mutex<Option<RgbaImage>>,
+    /// Active high-DPI scaling factor of the primary display (e.g. 1.0, 1.25, 2.0).
     pub scale_factor: Mutex<f32>,
+    /// Registered global keyboard shortcut handle for triggering screen region captures.
     pub capture_shortcut: Mutex<Option<Shortcut>>,
+    /// Registered global keyboard shortcut handle for toggling the HUD window visibility.
     pub toggle_shortcut: Mutex<Option<Shortcut>>,
 }
 
+/// Configuration bindings for global hotkeys.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HotkeysConfig {
+    /// Keyboard shortcut pattern for capturing a region (e.g., `CommandOrControl+Shift+J`).
     pub capture_region: String,
+    /// Keyboard shortcut pattern for toggling the HUD panel overlay (e.g., `CommandOrControl+Shift+O`).
     pub toggle_overlay: String,
 }
 
+/// Configuration settings for the connected Large Language Model provider.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct LlmConfig {
+    /// LLM provider engine (e.g., `"ollama"`, `"gemini"`, `"openai"`, `"custom"`, `"deepseek"`).
     pub provider: String,
+    /// Optional API key for cloud endpoints (Gemini / OpenAI compatible API keys).
     pub cloud_api_key: String,
+    /// Targeted endpoint url for querying (e.g., `"http://localhost:11434"` for Ollama).
     pub endpoint_url: String,
+    /// Specified model ID (e.g., `"llama3"`, `"gemini-1.5-flash"`, `"gpt-4o"`).
     pub model: String,
+    /// Pre-configured instruction prompt for translating and breaking down Japanese segments.
     pub system_prompt: String,
 }
 
+/// Configuration parameters for the Optical Character Recognition engine.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OcrConfig {
+    /// Target OCR execution pipeline (e.g., `"cloud_vision"` or `"llm_multimodal"`).
     pub mode: String,
+    /// Google Cloud Vision API Key if in `cloud_vision` mode.
     pub api_key: String,
+    /// Target recognition/hint language code (defaults to `"ja"`).
     pub target_language: String,
 }
 
+/// Interface themes and display configuration rules.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct UiConfig {
+    /// active UI visual layout style (`"dark"`, `"light"`).
     pub theme: String,
+    /// HUD overlay box transparency parameter (0.0 to 1.0).
     pub overlay_opacity: f32,
+    /// Sets whether the HUD remains pinned in front of other programs.
     pub always_on_top: bool,
 }
 
+/// The parent structure holding all user-configurable parameters of the application.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppConfig {
+    /// Global key combinations.
     pub hotkeys: HotkeysConfig,
+    /// AI model endpoints.
     pub llm: LlmConfig,
+    /// Text recognition configuration.
     pub ocr: OcrConfig,
+    /// HUD overlay styling configuration.
     pub ui: UiConfig,
 }
 
 impl Default for AppConfig {
+    /// Generates the standard default configuration parameters for AIna-sensei.
     fn default() -> Self {
         AppConfig {
             hotkeys: HotkeysConfig {
@@ -88,7 +125,7 @@ impl Default for AppConfig {
     }
 }
 
-// Config file helper functions
+/// Resolves the absolute path to the workspace `config.json` file inside the system's AppData directory.
 fn get_config_path(app: &AppHandle) -> PathBuf {
     let mut path = app.path().app_config_dir().unwrap_or_default();
     let _ = fs::create_dir_all(&path);
@@ -96,6 +133,8 @@ fn get_config_path(app: &AppHandle) -> PathBuf {
     path
 }
 
+/// Tauri command to load the configuration from disk. 
+/// If the file does not exist or fails to parse, it writes and returns the default configuration.
 #[tauri::command]
 fn load_config(app: AppHandle) -> AppConfig {
     let path = get_config_path(&app);
@@ -111,6 +150,8 @@ fn load_config(app: AppHandle) -> AppConfig {
     default_config
 }
 
+/// Tauri command to persist custom configuration parameters to the local config file.
+/// Triggers global hotkey re-registration inside the Tauri background loop.
 #[tauri::command]
 fn save_config(app: AppHandle, config: AppConfig) -> Result<(), String> {
     let path = get_config_path(&app);
@@ -124,6 +165,7 @@ fn save_config(app: AppHandle, config: AppConfig) -> Result<(), String> {
     Ok(())
 }
 
+/// Unregisters all active hotkeys and registers new ones according to the latest configuration.
 fn register_hotkeys(app: &AppHandle, config: &AppConfig, state: &AppState) -> Result<(), String> {
     let global_shortcut = app.global_shortcut();
     let _ = global_shortcut.unregister_all();
@@ -149,7 +191,8 @@ fn register_hotkeys(app: &AppHandle, config: &AppConfig, state: &AppState) -> Re
     Ok(())
 }
 
-// Window commands
+/// Automatically positions the transparent HUD window along the right edge of the primary physical monitor,
+/// spanning 1/4th width of the monitor size.
 fn position_hud_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     if let Some(monitor) = window.primary_monitor().map_err(|e| e.to_string())? {
         let size = monitor.size();
@@ -168,6 +211,8 @@ fn position_hud_window(window: &tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
+/// Tauri command to programmatically display a window and focus on it.
+/// If displaying the HUD overlay, it automatically recalibrates its docking position on the monitor.
 #[tauri::command]
 fn show_window(app: AppHandle, label: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
@@ -180,6 +225,7 @@ fn show_window(app: AppHandle, label: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Tauri command to programmatically hide a window by its label identifier.
 #[tauri::command]
 fn hide_window(app: AppHandle, label: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(&label) {
@@ -188,6 +234,7 @@ fn hide_window(app: AppHandle, label: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Tauri command to write logs into a debug text file stored under the system's Document directory.
 #[tauri::command]
 fn write_debug_log(app: AppHandle, log: String) {
     if let Ok(mut path) = app.path().document_dir() {
@@ -205,7 +252,8 @@ fn write_debug_log(app: AppHandle, log: String) {
     }
 }
 
-// Capture and Cropping Commands
+/// Tauri command to perform a full-screen snapshot of the primary screen monitor,
+/// saving the resulting raw pixel buffer to shared state, and returning the base64 data url.
 #[tauri::command]
 fn capture_screen(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let screens = Screen::all().map_err(|e| format!("Failed to get screens: {}", e))?;
@@ -237,6 +285,7 @@ fn capture_screen(state: tauri::State<'_, AppState>) -> Result<String, String> {
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
+/// Tauri command to fetch the last cached full-screen screenshot, encoded as base64 data url.
 #[tauri::command]
 fn get_captured_screen(state: tauri::State<'_, AppState>) -> Result<String, String> {
     let last_capture_lock = state.last_capture.lock().unwrap();
@@ -254,6 +303,8 @@ fn get_captured_screen(state: tauri::State<'_, AppState>) -> Result<String, Stri
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
+/// Tauri command to crop a smaller sub-region from the cached full-screen image buffer
+/// based on logical coordinates (scaled to actual physical monitor DPI scale).
 #[tauri::command]
 fn crop_image(
     state: tauri::State<'_, AppState>,
@@ -300,7 +351,8 @@ fn crop_image(
     Ok(format!("data:image/png;base64,{}", b64))
 }
 
-// Hotkey Actions called inside shortcuts thread
+/// Triggers a screen region capture loop when the global capture hotkey is pressed.
+/// Temporarily hides the HUD window, captures the primary display buffer, and displays the Snipper overlay.
 fn trigger_capture(app: &AppHandle, state: &AppState) {
     if let Some(hud) = app.get_webview_window("hud") {
         let _ = hud.hide();
@@ -327,6 +379,7 @@ fn trigger_capture(app: &AppHandle, state: &AppState) {
     }
 }
 
+/// Toggles the visibility of the docked HUD overlay when the toggle hotkey is pressed.
 fn trigger_toggle_overlay(app: &AppHandle) {
     if let Some(hud) = app.get_webview_window("hud") {
         if let Ok(visible) = hud.is_visible() {
@@ -341,6 +394,8 @@ fn trigger_toggle_overlay(app: &AppHandle) {
     }
 }
 
+/// Main entry point of the Tauri desktop application.
+/// Initializes plugins, hooks window intercept events, builds the tray menu, registers hotkeys, and runs the Tauri builder loop.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
