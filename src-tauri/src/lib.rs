@@ -72,7 +72,7 @@ impl Default for AppConfig {
                 cloud_api_key: "".to_string(),
                 endpoint_url: "http://localhost:11434".to_string(),
                 model: "llama3".to_string(),
-                system_prompt: "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. Romaji transcription\n2. Natural English Translation\n3. Vocabulary Breakdown with Furigana\n4. Concise Grammar Points.".to_string(),
+                system_prompt: "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. The extracted text\n2. Romaji transcription\n3. Natural English Translation\n4. Vocabulary Breakdown with Furigana\n5. Concise Grammar Points.".to_string(),
             },
             ocr: OcrConfig {
                 mode: "cloud_vision".to_string(),
