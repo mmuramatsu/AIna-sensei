@@ -992,7 +992,6 @@ export function Settings() {
                       </ul>
                     )}
                   </div>
-                  <span className="text-[10px] text-white/30 mt-1 block">Leave empty for official cloud providers (Gemini/OpenAI defaults)</span>
                 </div>
 
                 <div>
