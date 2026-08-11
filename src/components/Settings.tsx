@@ -118,6 +118,31 @@ export function Settings() {
       : fetchedModels.filter(m => m.toLowerCase().includes(config.llm.model.toLowerCase()));
   };
 
+  const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const [isUrlDropdownOpen, setIsUrlDropdownOpen] = useState(false);
+  const [showAllUrls, setShowAllUrls] = useState(false);
+  const [urlFocusedIndex, setUrlFocusedIndex] = useState(-1);
+
+  const getFilteredUrls = () => {
+    if (!config?.llm) return [];
+    const allSuggestions: string[] = [];
+    const prov = config.llm.provider;
+    if (prov === "ollama") {
+      allSuggestions.push("http://localhost:11434", "http://127.0.0.1:11434");
+    } else if (prov === "gemini") {
+      allSuggestions.push("https://generativelanguage.googleapis.com");
+    } else if (prov === "openai") {
+      allSuggestions.push("https://api.openai.com");
+    } else if (prov === "custom") {
+      allSuggestions.push("http://localhost:1234", "http://localhost:8080", "http://localhost:8000");
+    }
+
+    return showAllUrls
+      ? allSuggestions
+      : allSuggestions.filter(u => u.toLowerCase().includes(config.llm.endpoint_url.toLowerCase()));
+  };
+
   useEffect(() => {
     if (!config?.llm) return;
 
@@ -611,18 +636,54 @@ export function Settings() {
                   <div className="flex flex-col md:flex-row md:items-end gap-3">
                     <div className="flex-1">
                       <label className="block text-xs font-semibold text-white/50 mb-1.5">Load Configuration Preset</label>
-                      <select
-                        value={selectedPresetName}
-                        onChange={(e) => handleLoadPreset(e.target.value)}
-                        className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                      <div 
+                        className="relative text-left"
+                        onBlur={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setIsPresetDropdownOpen(false);
+                          }
+                        }}
                       >
-                        <option value="">-- Select a preset to load --</option>
-                        {Object.keys(config.presets || {}).map((name) => (
-                          <option key={name} value={name}>
-                            {name}
-                          </option>
-                        ))}
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() => setIsPresetDropdownOpen(!isPresetDropdownOpen)}
+                          className="w-full text-left bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl pl-3 pr-10 py-2.5 text-sm text-white outline-none transition-all cursor-pointer relative"
+                        >
+                          {selectedPresetName || "-- Select a preset to load --"}
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                            <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isPresetDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </span>
+                        </button>
+                        {isPresetDropdownOpen && (
+                          <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-[#18181b] border border-white/15 rounded-xl shadow-xl py-1 outline-none text-left scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                            <li
+                              onMouseDown={() => {
+                                setSelectedPresetName("");
+                                setIsPresetDropdownOpen(false);
+                              }}
+                              className="px-3 py-2 text-xs text-white/40 italic hover:bg-white/5 cursor-pointer"
+                            >
+                              -- Select a preset to load --
+                            </li>
+                            {Object.keys(config.presets || {}).map((name) => (
+                              <li
+                                key={name}
+                                onMouseDown={() => {
+                                  handleLoadPreset(name);
+                                  setIsPresetDropdownOpen(false);
+                                }}
+                                className={`px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 cursor-pointer transition-all ${
+                                  selectedPresetName === name ? "text-blue-400 font-semibold bg-white/5" : ""
+                                }`}
+                              >
+                                {name}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     </div>
                     {selectedPresetName && !["Japanese Tutor (Default)", "English Translator"].includes(selectedPresetName) && (
                       <button
@@ -660,16 +721,56 @@ export function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider</label>
-                    <select
-                      value={config.llm.provider}
-                      onChange={(e) => handleProviderChange(e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                    <div 
+                      className="relative text-left"
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setIsProviderDropdownOpen(false);
+                        }
+                      }}
                     >
-                      <option value="ollama">Ollama (Local)</option>
-                      <option value="gemini">Google Gemini (Cloud)</option>
-                      <option value="openai">OpenAI (Cloud)</option>
-                      <option value="custom">Custom OpenAI-Compatible</option>
-                    </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+                        className="w-full text-left bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl pl-3 pr-10 py-2.5 text-sm text-white outline-none transition-all cursor-pointer relative"
+                      >
+                        {(() => {
+                          if (config.llm.provider === "ollama") return "Ollama (Local)";
+                          if (config.llm.provider === "gemini") return "Google Gemini (Cloud)";
+                          if (config.llm.provider === "openai") return "OpenAI (Cloud)";
+                          if (config.llm.provider === "custom") return "Custom OpenAI-Compatible";
+                          return config.llm.provider;
+                        })()}
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                          <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isProviderDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </span>
+                      </button>
+                      {isProviderDropdownOpen && (
+                        <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-[#18181b] border border-white/15 rounded-xl shadow-xl py-1 outline-none text-left scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          {[
+                            { val: "ollama", label: "Ollama (Local)" },
+                            { val: "gemini", label: "Google Gemini (Cloud)" },
+                            { val: "openai", label: "OpenAI (Cloud)" },
+                            { val: "custom", label: "Custom OpenAI-Compatible" },
+                          ].map((opt) => (
+                            <li
+                              key={opt.val}
+                              onMouseDown={() => {
+                                handleProviderChange(opt.val);
+                                setIsProviderDropdownOpen(false);
+                              }}
+                              className={`px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 cursor-pointer transition-all ${
+                                config.llm.provider === opt.val ? "text-blue-400 font-semibold bg-white/5" : ""
+                              }`}
+                            >
+                              {opt.label}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-white/50 mb-1.5 flex items-center">
@@ -789,35 +890,108 @@ export function Settings() {
 
                 <div>
                   <label className="block text-xs font-semibold text-white/50 mb-1.5">API Endpoint URL</label>
-                  <input
-                    type="text"
-                    list="endpoints-list"
-                    value={config.llm.endpoint_url}
-                    onChange={(e) => updateConfigField("llm", "endpoint_url", e.target.value)}
-                    placeholder="e.g., http://localhost:11434"
-                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all"
-                  />
-                  <datalist id="endpoints-list">
-                    {config.llm.provider === "ollama" && (
-                      <>
-                        <option value="http://localhost:11434" />
-                        <option value="http://127.0.0.1:11434" />
-                      </>
+                  <div 
+                    className="relative text-left"
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setIsUrlDropdownOpen(false);
+                      }
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={config.llm.endpoint_url}
+                      onFocus={() => {
+                        setIsUrlDropdownOpen(true);
+                        setShowAllUrls(false);
+                        setUrlFocusedIndex(-1);
+                      }}
+                      onClick={() => {
+                        setIsUrlDropdownOpen(true);
+                        setShowAllUrls(true);
+                        setUrlFocusedIndex(-1);
+                      }}
+                      onChange={(e) => {
+                        updateConfigField("llm", "endpoint_url", e.target.value);
+                        setIsUrlDropdownOpen(true);
+                        setShowAllUrls(false);
+                        setUrlFocusedIndex(-1);
+                      }}
+                      onKeyDown={(e) => {
+                        const filtered = getFilteredUrls();
+                        if (e.key === "Escape") {
+                          setIsUrlDropdownOpen(false);
+                        } else if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setIsUrlDropdownOpen(true);
+                          setUrlFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setIsUrlDropdownOpen(true);
+                          setUrlFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                        } else if (e.key === "Enter") {
+                          if (isUrlDropdownOpen && urlFocusedIndex >= 0 && urlFocusedIndex < filtered.length) {
+                            e.preventDefault();
+                            updateConfigField("llm", "endpoint_url", filtered[urlFocusedIndex]);
+                            setIsUrlDropdownOpen(false);
+                          }
+                        }
+                      }}
+                      placeholder="e.g., http://localhost:11434"
+                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl pl-3 pr-10 py-2.5 text-sm text-white outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUrlDropdownOpen(!isUrlDropdownOpen);
+                        setShowAllUrls(true);
+                        setUrlFocusedIndex(-1);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-all outline-none cursor-pointer"
+                    >
+                      <svg 
+                        className={`w-3.5 h-3.5 transition-transform duration-200 ${isUrlDropdownOpen ? 'rotate-180' : ''}`} 
+                        fill="none" 
+                        viewBox="0 0 24 24" 
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {isUrlDropdownOpen && (
+                      <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-[#18181b] border border-white/15 rounded-xl shadow-xl py-1 outline-none text-left scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                        {(() => {
+                          const filtered = getFilteredUrls();
+
+                          if (filtered.length === 0) {
+                            return (
+                              <li className="px-3 py-2 text-xs text-white/40 italic">
+                                No matching suggestions found. Keep typing.
+                              </li>
+                            );
+                          }
+
+                          return filtered.map((u, index) => (
+                            <li
+                              key={u}
+                              onMouseDown={() => {
+                                updateConfigField("llm", "endpoint_url", u);
+                                setIsUrlDropdownOpen(false);
+                              }}
+                              className={`px-3 py-2 text-xs text-white/80 hover:text-white cursor-pointer transition-all ${
+                                config.llm.endpoint_url === u ? "text-blue-400 font-semibold" : ""
+                              } ${
+                                urlFocusedIndex === index ? "bg-white/10 text-white font-semibold" : "hover:bg-white/5"
+                              }`}
+                            >
+                              {u}
+                            </li>
+                          ));
+                        })()}
+                      </ul>
                     )}
-                    {config.llm.provider === "gemini" && (
-                      <option value="https://generativelanguage.googleapis.com" />
-                    )}
-                    {config.llm.provider === "openai" && (
-                      <option value="https://api.openai.com" />
-                    )}
-                    {config.llm.provider === "custom" && (
-                      <>
-                        <option value="http://localhost:1234" />
-                        <option value="http://localhost:8080" />
-                        <option value="http://localhost:8000" />
-                      </>
-                    )}
-                  </datalist>
+                  </div>
                   <span className="text-[10px] text-white/30 mt-1 block">Leave empty for official cloud providers (Gemini/OpenAI defaults)</span>
                 </div>
 
