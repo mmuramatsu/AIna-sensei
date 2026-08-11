@@ -101,6 +101,58 @@ export function Settings() {
   const [recordingField, setRecordingField] = useState<'capture' | 'toggle' | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'ocr' | 'ui'>('general');
 
+  const [selectedPresetName, setSelectedPresetName] = useState("");
+  const [newPresetName, setNewPresetName] = useState("");
+
+  /**
+   * Loads a saved configuration preset into the active LLM backend form fields.
+   *
+   * @param name - The name of the preset profile to load.
+   */
+  const handleLoadPreset = (name: string) => {
+    setSelectedPresetName(name);
+    if (!name || !config) return;
+    const preset = (config.presets || {})[name];
+    if (preset) {
+      setConfig({
+        ...config,
+        llm: { ...preset }
+      });
+    }
+  };
+
+  /**
+   * Saves the current LLM configuration fields under a new or existing preset profile name.
+   */
+  const handleSavePreset = () => {
+    const name = newPresetName.trim();
+    if (!name || !config) return;
+    const updatedPresets = {
+      ...(config.presets || {}),
+      [name]: { ...config.llm }
+    };
+    setConfig({
+      ...config,
+      presets: updatedPresets
+    });
+    setSelectedPresetName(name);
+    setNewPresetName("");
+  };
+
+  /**
+   * Deletes the currently selected custom configuration preset.
+   */
+  const handleDeletePreset = () => {
+    if (!selectedPresetName || !config) return;
+    const updatedPresets = { ...(config.presets || {}) };
+    delete updatedPresets[selectedPresetName];
+    setConfig({
+      ...config,
+      presets: updatedPresets
+    });
+    setSelectedPresetName("");
+  };
+
   const handleCaptureRecordingChange = useCallback((recording: boolean) => {
     setRecordingField(recording ? 'capture' : null);
   }, []);
@@ -473,6 +525,57 @@ export function Settings() {
 
             {activeTab === "ai" && (
               <div className="space-y-5">
+                {/* Configuration Presets Section */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-4 shadow-inner">
+                  <div className="flex flex-col md:flex-row md:items-end gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold text-white/50 mb-1.5">Load Configuration Preset</label>
+                      <select
+                        value={selectedPresetName}
+                        onChange={(e) => handleLoadPreset(e.target.value)}
+                        className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                      >
+                        <option value="">-- Select a preset to load --</option>
+                        {Object.keys(config.presets || {}).map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {selectedPresetName && !["Japanese Tutor (Default)", "English Translator"].includes(selectedPresetName) && (
+                      <button
+                        type="button"
+                        onClick={handleDeletePreset}
+                        className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 font-semibold text-xs py-2.5 px-4 rounded-xl transition-all cursor-pointer flex-shrink-0"
+                      >
+                        Delete Preset
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="border-t border-white/5 pt-3">
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5">Save Current Settings as Preset</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newPresetName}
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                        placeholder="Preset name (e.g. Spanish Tutor, Programming Assistant)..."
+                        className="flex-1 bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSavePreset}
+                        disabled={!newPresetName.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer flex-shrink-0"
+                      >
+                        Save Preset
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider</label>

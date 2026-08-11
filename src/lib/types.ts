@@ -60,4 +60,6 @@ export interface AppConfig {
   ocr: OcrConfig;
   /** HUD visual layouts properties */
   ui: UiConfig;
+  /** Saved LLM configuration presets */
+  presets?: Record<string, LlmConfig>;
 }

@@ -10,6 +10,7 @@
 //! - Providing system tray menus and handling close/quit events.
 
 use std::fs;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::str::FromStr;
@@ -88,29 +89,45 @@ pub struct UiConfig {
 pub struct AppConfig {
     /// Global key combinations.
     pub hotkeys: HotkeysConfig,
-    /// AI model endpoints.
+    /// Connected AI tutor parameters.
     pub llm: LlmConfig,
-    /// Text recognition configuration.
+    /// Text extraction setups.
     pub ocr: OcrConfig,
-    /// HUD overlay styling configuration.
+    /// HUD visual layouts properties.
     pub ui: UiConfig,
+    /// Saved LLM configuration presets.
+    #[serde(default)]
+    pub presets: HashMap<String, LlmConfig>,
 }
 
 impl Default for AppConfig {
     /// Generates the standard default configuration parameters for AIna-sensei.
     fn default() -> Self {
+        let mut presets = HashMap::new();
+        let default_tutor = LlmConfig {
+            provider: "ollama".to_string(),
+            cloud_api_key: "".to_string(),
+            endpoint_url: "http://localhost:11434".to_string(),
+            model: "llama3".to_string(),
+            system_prompt: "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. The extracted text\n2. Romaji transcription\n3. Natural English Translation\n4. Vocabulary Breakdown with Furigana\n5. Concise Grammar Points.".to_string(),
+        };
+        presets.insert("Japanese Tutor (Default)".to_string(), default_tutor.clone());
+
+        let translator = LlmConfig {
+            provider: "ollama".to_string(),
+            cloud_api_key: "".to_string(),
+            endpoint_url: "http://localhost:11434".to_string(),
+            model: "llama3".to_string(),
+            system_prompt: "You are a precise English translator. Translate the following text into natural, clear English:\n\nText: {extracted_text}".to_string(),
+        };
+        presets.insert("English Translator".to_string(), translator);
+
         AppConfig {
             hotkeys: HotkeysConfig {
                 capture_region: "CommandOrControl+Shift+J".to_string(),
                 toggle_overlay: "CommandOrControl+Shift+O".to_string(),
             },
-            llm: LlmConfig {
-                provider: "ollama".to_string(),
-                cloud_api_key: "".to_string(),
-                endpoint_url: "http://localhost:11434".to_string(),
-                model: "llama3".to_string(),
-                system_prompt: "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. The extracted text\n2. Romaji transcription\n3. Natural English Translation\n4. Vocabulary Breakdown with Furigana\n5. Concise Grammar Points.".to_string(),
-            },
+            llm: default_tutor,
             ocr: OcrConfig {
                 mode: "cloud_vision".to_string(),
                 api_key: "YOUR_VISION_API_KEY".to_string(),
@@ -121,6 +138,7 @@ impl Default for AppConfig {
                 overlay_opacity: 0.9,
                 always_on_top: true,
             },
+            presets,
         }
     }
 }
