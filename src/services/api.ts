@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { fetch } from "@tauri-apps/plugin-http";
 
 /**
  * Configuration schema for the Character Recognition (OCR) engine.
@@ -483,4 +484,93 @@ async function streamOpenAICompatible(
   }
 
   return fullText;
+}
+
+/**
+ * Queries the selected LLM provider API in the background to fetch all active available models.
+ * If the request fails, returns standard fallback model names for that provider.
+ *
+ * @param config - The active LLM configuration parameters.
+ * @returns A promise resolving to an array of model identifier strings.
+ */
+export async function fetchAvailableModels(config: LlmConfig): Promise<string[]> {
+  const provider = config.provider.toLowerCase();
+
+  try {
+    if (provider === "ollama") {
+      const baseUrl = config.endpoint_url || "http://localhost:11434";
+      const response = await fetch(`${baseUrl}/api/tags`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.models && Array.isArray(data.models)) {
+          return data.models.map((m: any) => m.name);
+        }
+      }
+    } else if (provider === "gemini") {
+      if (config.cloud_api_key) {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${config.cloud_api_key}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.models && Array.isArray(data.models)) {
+            // Filter only models that support content generation and strip the "models/" prefix
+            return data.models
+              .filter((m: any) => m.supportedGenerationMethods?.includes("generateContent"))
+              .map((m: any) => m.name.replace(/^models\//, ""));
+          }
+        }
+      }
+    } else if (provider === "openai") {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (config.cloud_api_key) {
+        headers["Authorization"] = `Bearer ${config.cloud_api_key}`;
+      }
+      const response = await fetch("https://api.openai.com/v1/models", { headers });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data && Array.isArray(data.data)) {
+          return data.data.map((m: any) => m.id);
+        }
+      }
+    } else if (provider === "custom" || provider === "deepseek") {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (config.cloud_api_key) {
+        headers["Authorization"] = `Bearer ${config.cloud_api_key}`;
+      }
+      let baseUrl = (config.endpoint_url || "").trim().replace(/\/+$/, "");
+      if (!baseUrl) return [];
+      
+      let url = "";
+      if (baseUrl.endsWith("/v1/models") || baseUrl.endsWith("/models")) {
+        url = baseUrl;
+      } else if (baseUrl.endsWith("/v1")) {
+        url = `${baseUrl}/models`;
+      } else {
+        url = `${baseUrl}/v1/models`;
+      }
+      
+      const response = await fetch(url, { headers });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.data && Array.isArray(data.data)) {
+          return data.data.map((m: any) => m.id);
+        }
+      }
+    }
+  } catch (e) {
+    // Fail silently to return fallbacks
+  }
+
+  // Fallback lists if API requests fail or are unauthenticated/offline
+  if (provider === "ollama") {
+    return ["llama3", "llama3.1", "mistral", "phi3", "gemma2", "qwen2"];
+  } else if (provider === "gemini") {
+    return ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.0-pro"];
+  } else if (provider === "openai") {
+    return ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"];
+  } else if (provider === "deepseek") {
+    return ["deepseek-chat", "deepseek-coder"];
+  }
+  return [];
 }

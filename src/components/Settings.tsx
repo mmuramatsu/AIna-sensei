@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../lib/types";
+import { fetchAvailableModels } from "../services/api";
 
 interface HotkeyRecorderProps {
   onChange: (newValue: string) => void;
@@ -103,6 +104,49 @@ export function Settings() {
 
   const [selectedPresetName, setSelectedPresetName] = useState("");
   const [newPresetName, setNewPresetName] = useState("");
+
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showAllOptions, setShowAllOptions] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+
+  const getFilteredModels = () => {
+    if (!config?.llm) return [];
+    return showAllOptions
+      ? fetchedModels
+      : fetchedModels.filter(m => m.toLowerCase().includes(config.llm.model.toLowerCase()));
+  };
+
+  useEffect(() => {
+    if (!config?.llm) return;
+
+    let active = true;
+    const loadModels = async () => {
+      setFetchingModels(true);
+      try {
+        const models = await fetchAvailableModels(config.llm);
+        if (active) {
+          setFetchedModels(models);
+        }
+      } catch (e) {
+        if (active) {
+          setFetchedModels([]);
+        }
+      } finally {
+        if (active) {
+          setFetchingModels(false);
+        }
+      }
+    };
+
+    // Debounce to prevent multiple API requests while typing credentials/URL
+    const timer = setTimeout(loadModels, 600);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [config?.llm.provider, config?.llm.endpoint_url, config?.llm.cloud_api_key]);
 
   /**
    * Loads a saved configuration preset into the active LLM backend form fields.
@@ -591,15 +635,118 @@ export function Settings() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-white/50 mb-1.5">Model Identifier Name</label>
-                    <input
-                      type="text"
-                      value={config.llm.model}
-                      onChange={(e) => updateConfigField("llm", "model", e.target.value)}
-                      placeholder="e.g. llama3, gemini-1.5-flash, gpt-4o"
-                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
-                      required
-                    />
+                    <label className="block text-xs font-semibold text-white/50 mb-1.5 flex items-center">
+                      Model Identifier Name
+                      {fetchingModels && (
+                        <span className="text-[10px] text-blue-400 ml-2 animate-pulse font-normal">
+                          (fetching available models...)
+                        </span>
+                      )}
+                    </label>
+                    <div 
+                      className="relative text-left"
+                      onBlur={(e) => {
+                        // Close dropdown only if focus left the entire combobox container
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setIsDropdownOpen(false);
+                        }
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={config.llm.model}
+                        onFocus={() => {
+                          setIsDropdownOpen(true);
+                          setShowAllOptions(false);
+                          setFocusedIndex(-1);
+                        }}
+                        onClick={() => {
+                          setIsDropdownOpen(true);
+                          setShowAllOptions(true);
+                          setFocusedIndex(-1);
+                        }}
+                        onChange={(e) => {
+                          updateConfigField("llm", "model", e.target.value);
+                          setIsDropdownOpen(true);
+                          setShowAllOptions(false);
+                          setFocusedIndex(-1);
+                        }}
+                        onKeyDown={(e) => {
+                          const filtered = getFilteredModels();
+                          if (e.key === "Escape") {
+                            setIsDropdownOpen(false);
+                          } else if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setIsDropdownOpen(true);
+                            setFocusedIndex(prev => (prev < filtered.length - 1 ? prev + 1 : prev));
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setIsDropdownOpen(true);
+                            setFocusedIndex(prev => (prev > 0 ? prev - 1 : prev));
+                          } else if (e.key === "Enter") {
+                            if (isDropdownOpen && focusedIndex >= 0 && focusedIndex < filtered.length) {
+                              e.preventDefault();
+                              updateConfigField("llm", "model", filtered[focusedIndex]);
+                              setIsDropdownOpen(false);
+                            }
+                          }
+                        }}
+                        placeholder="Select or type model name (e.g. gpt-4o, llama3)"
+                        className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl pl-3 pr-10 py-2.5 text-sm text-white outline-none transition-all"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsDropdownOpen(!isDropdownOpen);
+                          setShowAllOptions(true);
+                          setFocusedIndex(-1);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-all outline-none cursor-pointer"
+                      >
+                        <svg 
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {isDropdownOpen && (
+                        <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-[#18181b] border border-white/15 rounded-xl shadow-xl py-1 outline-none text-left scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          {(() => {
+                            const filtered = getFilteredModels();
+
+                            if (filtered.length === 0) {
+                              return (
+                                <li className="px-3 py-2 text-xs text-white/40 italic">
+                                  No matching models found. Keep typing or press Enter to keep custom.
+                                </li>
+                              );
+                            }
+
+                            return filtered.map((m, index) => (
+                              <li
+                                key={m}
+                                onMouseDown={() => {
+                                  updateConfigField("llm", "model", m);
+                                  setIsDropdownOpen(false);
+                                }}
+                                className={`px-3 py-2 text-xs text-white/80 hover:text-white cursor-pointer transition-all ${
+                                  config.llm.model === m ? "text-blue-400 font-semibold" : ""
+                                } ${
+                                  focusedIndex === index ? "bg-white/10 text-white font-semibold" : "hover:bg-white/5"
+                                }`}
+                              >
+                                {m}
+                              </li>
+                            ));
+                          })()}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 </div>
 

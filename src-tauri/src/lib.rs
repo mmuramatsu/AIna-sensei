@@ -9,22 +9,22 @@
 //! - Handling inter-window controls (settings window, transparent snipping overlay, and docked HUD panel).
 //! - Providing system tray menus and handling close/quit events.
 
-use std::fs;
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::Mutex;
-use std::str::FromStr;
-use std::io::Cursor;
 use base64::prelude::*;
-use screenshots::image::{RgbaImage, DynamicImage, ImageFormat};
+use screenshots::image::{DynamicImage, ImageFormat, RgbaImage};
 use screenshots::Screen;
-use tauri::{AppHandle, Manager, Emitter};
-use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::io::Cursor;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Mutex;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
 };
-use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 /// Holds the active runtime state shared across the Tauri application contexts.
 pub struct AppState {
@@ -111,7 +111,10 @@ impl Default for AppConfig {
             model: "llama3".to_string(),
             system_prompt: "You are a Japanese tutor. Analyze the following OCR text:\n\nText: {extracted_text}\n\nProvide:\n1. The extracted text\n2. Romaji transcription\n3. Natural English Translation\n4. Vocabulary Breakdown with Furigana\n5. Concise Grammar Points.".to_string(),
         };
-        presets.insert("Japanese Tutor (Default)".to_string(), default_tutor.clone());
+        presets.insert(
+            "Japanese Tutor (Default)".to_string(),
+            default_tutor.clone(),
+        );
 
         let translator = LlmConfig {
             provider: "ollama".to_string(),
@@ -151,7 +154,7 @@ fn get_config_path(app: &AppHandle) -> PathBuf {
     path
 }
 
-/// Tauri command to load the configuration from disk. 
+/// Tauri command to load the configuration from disk.
 /// If the file does not exist or fails to parse, it writes and returns the default configuration.
 #[tauri::command]
 fn load_config(app: AppHandle) -> AppConfig {
@@ -190,7 +193,8 @@ fn register_hotkeys(app: &AppHandle, config: &AppConfig, state: &AppState) -> Re
 
     // Register capture key
     if let Ok(shortcut) = Shortcut::from_str(&config.hotkeys.capture_region) {
-        global_shortcut.register(shortcut.clone())
+        global_shortcut
+            .register(shortcut.clone())
             .map_err(|e| format!("Failed to register capture hotkey: {}", e))?;
         if let Ok(mut cs) = state.capture_shortcut.lock() {
             *cs = Some(shortcut);
@@ -199,7 +203,8 @@ fn register_hotkeys(app: &AppHandle, config: &AppConfig, state: &AppState) -> Re
 
     // Register toggle key
     if let Ok(shortcut) = Shortcut::from_str(&config.hotkeys.toggle_overlay) {
-        global_shortcut.register(shortcut.clone())
+        global_shortcut
+            .register(shortcut.clone())
             .map_err(|e| format!("Failed to register toggle hotkey: {}", e))?;
         if let Ok(mut ts) = state.toggle_shortcut.lock() {
             *ts = Some(shortcut);
@@ -223,8 +228,12 @@ fn position_hud_window(window: &tauri::WebviewWindow) -> Result<(), String> {
         let x = pos.x + (size.width as i32 - hud_width as i32);
         let y = pos.y;
 
-        window.set_size(tauri::PhysicalSize::new(hud_width, hud_height)).map_err(|e| e.to_string())?;
-        window.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+        window
+            .set_size(tauri::PhysicalSize::new(hud_width, hud_height))
+            .map_err(|e| e.to_string())?;
+        window
+            .set_position(tauri::PhysicalPosition::new(x, y))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -259,11 +268,7 @@ fn write_debug_log(app: AppHandle, log: String) {
         path.push("AInaSensei");
         let _ = fs::create_dir_all(&path);
         path.push("AInaSensei_debug.log");
-        if let Ok(mut file) = fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)
-        {
+        if let Ok(mut file) = fs::OpenOptions::new().create(true).append(true).open(path) {
             use std::io::Write;
             let _ = writeln!(file, "{}", log);
         }
@@ -310,7 +315,7 @@ fn get_captured_screen(state: tauri::State<'_, AppState>) -> Result<String, Stri
     let image = last_capture_lock
         .as_ref()
         .ok_or_else(|| "No screen capture stored".to_string())?;
-    
+
     let mut png_bytes = Vec::new();
     let dynamic_img = DynamicImage::ImageRgba8(image.clone());
     dynamic_img
@@ -337,7 +342,7 @@ fn crop_image(
         .ok_or_else(|| "No screen capture stored".to_string())?;
 
     let scale = *state.scale_factor.lock().map_err(|e| e.to_string())?;
-    
+
     // Scale logical coordinates to physical coordinates
     let px = (x as f32 * scale) as u32;
     let py = (y as f32 * scale) as u32;
@@ -386,7 +391,7 @@ fn trigger_capture(app: &AppHandle, state: &AppState) {
                 if let Ok(mut lc) = state.last_capture.lock() {
                     *lc = Some(image);
                 }
-                
+
                 if let Some(snipper) = app.get_webview_window("snipper") {
                     let _ = snipper.show();
                     let _ = snipper.set_focus();
@@ -417,6 +422,7 @@ fn trigger_toggle_overlay(app: &AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_http::init())
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
@@ -426,27 +432,31 @@ pub fn run() {
             }
         })
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_global_shortcut::Builder::new().with_handler(|app, shortcut, event| {
-            if event.state() == ShortcutState::Pressed {
-                let state = app.state::<AppState>();
-                
-                let is_capture = {
-                    let guard = state.capture_shortcut.lock().unwrap();
-                    guard.as_ref().map(|s| s == shortcut).unwrap_or(false)
-                };
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    if event.state() == ShortcutState::Pressed {
+                        let state = app.state::<AppState>();
 
-                let is_toggle = {
-                    let guard = state.toggle_shortcut.lock().unwrap();
-                    guard.as_ref().map(|s| s == shortcut).unwrap_or(false)
-                };
+                        let is_capture = {
+                            let guard = state.capture_shortcut.lock().unwrap();
+                            guard.as_ref().map(|s| s == shortcut).unwrap_or(false)
+                        };
 
-                if is_capture {
-                    trigger_capture(app, &state);
-                } else if is_toggle {
-                    trigger_toggle_overlay(app);
-                }
-            }
-        }).build())
+                        let is_toggle = {
+                            let guard = state.toggle_shortcut.lock().unwrap();
+                            guard.as_ref().map(|s| s == shortcut).unwrap_or(false)
+                        };
+
+                        if is_capture {
+                            trigger_capture(app, &state);
+                        } else if is_toggle {
+                            trigger_toggle_overlay(app);
+                        }
+                    }
+                })
+                .build(),
+        )
         .manage(AppState {
             last_capture: Mutex::new(None),
             scale_factor: Mutex::new(1.0),
@@ -463,19 +473,17 @@ pub fn run() {
                 let _tray = TrayIconBuilder::new()
                     .icon(icon.clone())
                     .menu(&menu)
-                    .on_menu_event(|app, event| {
-                        match event.id().as_ref() {
-                            "show_settings" => {
-                                if let Some(main_win) = app.get_webview_window("main") {
-                                    let _ = main_win.show();
-                                    let _ = main_win.set_focus();
-                                }
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "show_settings" => {
+                            if let Some(main_win) = app.get_webview_window("main") {
+                                let _ = main_win.show();
+                                let _ = main_win.set_focus();
                             }
-                            "quit" => {
-                                app.exit(0);
-                            }
-                            _ => {}
                         }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
                     })
                     .build(app)?;
             }
