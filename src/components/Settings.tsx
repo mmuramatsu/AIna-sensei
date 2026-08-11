@@ -197,6 +197,43 @@ export function Settings() {
     setSelectedPresetName("");
   };
 
+  /**
+   * Sets default URL endpoints and model names automatically when changing the LLM provider.
+   *
+   * @param newProvider - The new target provider identifier.
+   */
+  const handleProviderChange = (newProvider: string) => {
+    if (!config) return;
+
+    let defaultEndpoint = "";
+    let defaultModel = "";
+
+    if (newProvider === "ollama") {
+      defaultEndpoint = "http://localhost:11434";
+      defaultModel = "llama3";
+    } else if (newProvider === "gemini") {
+      defaultEndpoint = "https://generativelanguage.googleapis.com";
+      defaultModel = "gemini-1.5-flash";
+    } else if (newProvider === "openai") {
+      defaultEndpoint = "https://api.openai.com";
+      defaultModel = "gpt-4o-mini";
+    } else if (newProvider === "custom") {
+      defaultEndpoint = "http://localhost:1234";
+      defaultModel = "local-model";
+    }
+
+    setConfig({
+      ...config,
+      llm: {
+        ...config.llm,
+        provider: newProvider,
+        endpoint_url: defaultEndpoint,
+        model: defaultModel,
+      }
+    });
+    setSelectedPresetName("");
+  };
+
   const handleCaptureRecordingChange = useCallback((recording: boolean) => {
     setRecordingField(recording ? 'capture' : null);
   }, []);
@@ -625,7 +662,7 @@ export function Settings() {
                     <label className="block text-xs font-semibold text-white/50 mb-1.5">Provider</label>
                     <select
                       value={config.llm.provider}
-                      onChange={(e) => updateConfigField("llm", "provider", e.target.value)}
+                      onChange={(e) => handleProviderChange(e.target.value)}
                       className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
                     >
                       <option value="ollama">Ollama (Local)</option>
@@ -754,11 +791,33 @@ export function Settings() {
                   <label className="block text-xs font-semibold text-white/50 mb-1.5">API Endpoint URL</label>
                   <input
                     type="text"
+                    list="endpoints-list"
                     value={config.llm.endpoint_url}
                     onChange={(e) => updateConfigField("llm", "endpoint_url", e.target.value)}
                     placeholder="e.g., http://localhost:11434"
-                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2 text-sm text-white outline-none transition-all"
+                    className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all"
                   />
+                  <datalist id="endpoints-list">
+                    {config.llm.provider === "ollama" && (
+                      <>
+                        <option value="http://localhost:11434" />
+                        <option value="http://127.0.0.1:11434" />
+                      </>
+                    )}
+                    {config.llm.provider === "gemini" && (
+                      <option value="https://generativelanguage.googleapis.com" />
+                    )}
+                    {config.llm.provider === "openai" && (
+                      <option value="https://api.openai.com" />
+                    )}
+                    {config.llm.provider === "custom" && (
+                      <>
+                        <option value="http://localhost:1234" />
+                        <option value="http://localhost:8080" />
+                        <option value="http://localhost:8000" />
+                      </>
+                    )}
+                  </datalist>
                   <span className="text-[10px] text-white/30 mt-1 block">Leave empty for official cloud providers (Gemini/OpenAI defaults)</span>
                 </div>
 
