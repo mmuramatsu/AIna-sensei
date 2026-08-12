@@ -26,3 +26,8 @@ dist-ssr
 # Test images
 /test.png
 /test2.png
+
+# Tauri updater keys
+.tauri/
+*.key
+*.key.pub

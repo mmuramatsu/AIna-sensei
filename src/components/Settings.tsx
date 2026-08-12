@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../lib/types";
 import { fetchAvailableModels } from "../services/api";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 
 interface HotkeyRecorderProps {
   onChange: (newValue: string) => void;
@@ -104,6 +106,76 @@ export function Settings() {
 
   const [selectedPresetName, setSelectedPresetName] = useState("");
   const [newPresetName, setNewPresetName] = useState("");
+
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateVersion, setUpdateVersion] = useState("");
+  const [updateNotes, setUpdateNotes] = useState("");
+  const [updateObject, setUpdateObject] = useState<any>(null);
+  const [isDownloadingUpdate, setIsDownloadingUpdate] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadProgressText, setDownloadProgressText] = useState("");
+  const [dismissUpdate, setDismissUpdate] = useState(false);
+  const [updateError, setUpdateError] = useState("");
+
+  const checkAppUpdate = async () => {
+    try {
+      const updateResult = await check();
+      if (updateResult?.available) {
+        setUpdateObject(updateResult);
+        setUpdateVersion(updateResult.version);
+        setUpdateNotes(updateResult.body || "");
+        setUpdateAvailable(true);
+      }
+    } catch (err) {
+      console.error("Error checking for updates:", err);
+    }
+  };
+
+  const handleInstallUpdate = async () => {
+    if (!updateObject) return;
+    try {
+      setUpdateError("");
+      setIsDownloadingUpdate(true);
+      setDownloadProgress(0);
+      setDownloadProgressText("Initializing download...");
+
+      let downloaded = 0;
+      let total = 0;
+
+      await updateObject.downloadAndInstall((event: any) => {
+        switch (event.event) {
+          case "Started":
+            total = event.data.contentLength || 0;
+            setDownloadProgressText(`Downloading...`);
+            break;
+          case "Progress":
+            downloaded += event.data.chunkLength;
+            if (total > 0) {
+              const pct = Math.round((downloaded / total) * 100);
+              setDownloadProgress(pct);
+              setDownloadProgressText(`Downloading: ${pct}% (${(downloaded / (1024 * 1024)).toFixed(1)} MB / ${(total / (1024 * 1024)).toFixed(1)} MB)`);
+            } else {
+              setDownloadProgressText(`Downloading: ${(downloaded / (1024 * 1024)).toFixed(1)} MB`);
+            }
+            break;
+          case "Finished":
+            setDownloadProgress(100);
+            setDownloadProgressText("Installing update and restarting...");
+            break;
+        }
+      });
+
+      await relaunch();
+    } catch (err) {
+      console.error("Failed to install update:", err);
+      setUpdateError("Failed to install update. Signature verification failed.");
+      setIsDownloadingUpdate(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAppUpdate();
+  }, []);
 
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
@@ -475,6 +547,67 @@ export function Settings() {
 
       {/* Main Content Pane */}
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-slate-950">
+        {/* Update Notification Banner */}
+        {updateAvailable && !dismissUpdate && (
+          <div className="px-8 pt-6">
+            <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 animate-fade-in">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-bold text-sm text-white">New Update Available: v{updateVersion}</h4>
+                  <p className="text-xs text-white/60 mt-0.5">
+                    {isDownloadingUpdate 
+                      ? downloadProgressText 
+                      : (updateError ? <span className="text-red-400 font-semibold">{updateError}</span> : "A new version of AIna-sensei is ready. Would you like to update now?")
+                    }
+                  </p>
+                  {!isDownloadingUpdate && updateNotes && (
+                    <p className="text-[10px] text-indigo-300/60 mt-1 italic font-normal line-clamp-1">
+                      Notes: {updateNotes}
+                    </p>
+                  )}
+                  {isDownloadingUpdate && (
+                    <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
+                      <div 
+                        className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" 
+                        style={{ width: `${downloadProgress}%` }}
+                      ></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end md:self-center">
+                {!isDownloadingUpdate ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setDismissUpdate(true)}
+                      className="text-white/40 hover:text-white/70 font-medium text-xs px-3 py-2 rounded-xl transition-all cursor-pointer"
+                    >
+                      Later
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleInstallUpdate}
+                      className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                    >
+                      Update & Restart
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-xs text-indigo-400 font-semibold animate-pulse px-3 py-2">
+                    Updating...
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status Alerts Bar */}
         {(successMsg || errorMsg) && (
           <div className="px-8 pt-6">
