@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  APPIMAGE_EXTRACT_AND_RUN: 1
+
 jobs:
   release:
     permissions:
