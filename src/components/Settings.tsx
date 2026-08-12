@@ -5,6 +5,7 @@ import { AppConfig } from "../lib/types";
 import { fetchAvailableModels } from "../services/api";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { getVersion } from "@tauri-apps/api/app";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -119,6 +120,7 @@ export function Settings() {
   const [dismissUpdate, setDismissUpdate] = useState(false);
   const [updateError, setUpdateError] = useState("");
   const [showNotesModal, setShowNotesModal] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState("");
 
   const checkAppUpdate = async () => {
     try {
@@ -178,6 +180,15 @@ export function Settings() {
 
   useEffect(() => {
     checkAppUpdate();
+    const loadVersion = async () => {
+      try {
+        const ver = await getVersion();
+        setCurrentVersion(ver);
+      } catch (err) {
+        console.error("Failed to load app version:", err);
+      }
+    };
+    loadVersion();
   }, []);
 
   const [fetchedModels, setFetchedModels] = useState<string[]>([]);
@@ -544,6 +555,9 @@ export function Settings() {
                 </div>
               </div>
             )}
+          </div>
+          <div className="text-[10px] text-white/20 text-center mt-2.5 font-mono">
+            v{currentVersion || "1.0.0"}
           </div>
         </div>
       </aside>
