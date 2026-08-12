@@ -5,6 +5,8 @@ import { AppConfig } from "../lib/types";
 import { fetchAvailableModels } from "../services/api";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface HotkeyRecorderProps {
   onChange: (newValue: string) => void;
@@ -116,6 +118,7 @@ export function Settings() {
   const [downloadProgressText, setDownloadProgressText] = useState("");
   const [dismissUpdate, setDismissUpdate] = useState(false);
   const [updateError, setUpdateError] = useState("");
+  const [showNotesModal, setShowNotesModal] = useState(false);
 
   const checkAppUpdate = async () => {
     try {
@@ -566,9 +569,13 @@ export function Settings() {
                     }
                   </p>
                   {!isDownloadingUpdate && updateNotes && (
-                    <p className="text-[10px] text-indigo-300/60 mt-1 italic font-normal line-clamp-1">
-                      Notes: {updateNotes}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowNotesModal(true)}
+                      className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold underline mt-1 cursor-pointer block text-left"
+                    >
+                      View Release Notes
+                    </button>
                   )}
                   {isDownloadingUpdate && (
                     <div className="w-full bg-white/10 rounded-full h-1.5 mt-2">
@@ -1197,6 +1204,40 @@ export function Settings() {
           </form>
         </div>
       </main>
+
+      {/* Release Notes Modal Overlay */}
+      {showNotesModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg p-6 shadow-2xl space-y-4 animate-fade-in text-left">
+            <div className="flex justify-between items-center border-b border-white/5 pb-3">
+              <h3 className="text-sm font-bold text-white">Release Notes — v{updateVersion}</h3>
+              <button 
+                type="button" 
+                onClick={() => setShowNotesModal(false)}
+                className="text-white/40 hover:text-white/70 transition-all text-xs font-semibold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="max-h-60 overflow-y-auto text-xs text-white/70 leading-relaxed scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent pr-2 markdown-body space-y-2">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {updateNotes}
+              </ReactMarkdown>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowNotesModal(false)}
+                className="bg-white/10 hover:bg-white/15 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
