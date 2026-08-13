@@ -422,6 +422,12 @@ fn trigger_toggle_overlay(app: &AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_http::init())
