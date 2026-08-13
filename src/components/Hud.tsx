@@ -91,13 +91,27 @@ export function Hud() {
   
   const contentEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const shouldScrollRef = useRef(true);
+
+  const handleScroll = () => {
+    const main = mainRef.current;
+    if (!main) return;
+    // If the user scrolls within 60px of the bottom, lock to bottom; otherwise, unlock
+    const threshold = 60;
+    const isCloseToBottom = main.scrollHeight - main.scrollTop - main.clientHeight < threshold;
+    shouldScrollRef.current = isCloseToBottom;
+  };
 
   // Auto-scroll explanation as it streams or messages are added
   useEffect(() => {
-    if (contentEndRef.current) {
-      contentEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (shouldScrollRef.current && contentEndRef.current) {
+      // Use instant scroll during generation to prevent animation jitters, smooth scroll for static changes
+      contentEndRef.current.scrollIntoView({ 
+        behavior: loading ? "auto" : "smooth" 
+      });
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   // Auto-resize the chat textarea height up to 6 lines
   useEffect(() => {
@@ -132,6 +146,7 @@ export function Hud() {
       setError(null);
       setLoading(true);
       setOcrLoading(true);
+      shouldScrollRef.current = true; // Lock to bottom for new query
 
       try {
         // Load latest config in case it changed
@@ -242,6 +257,7 @@ export function Hud() {
     e.preventDefault();
     if (!chatInput.trim() || loading) return;
 
+    shouldScrollRef.current = true; // Lock to bottom for new outgoing message
     const userMsg = chatInput.trim();
     setChatInput("");
 
@@ -360,7 +376,11 @@ export function Hud() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar flex flex-col">
+      <main 
+        ref={mainRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar flex flex-col"
+      >
         {/* Dynamic State HUD Messages */}
         {!croppedImage && !loading && (
           <div className="flex flex-col items-center justify-center my-auto text-center space-y-3 py-10">
