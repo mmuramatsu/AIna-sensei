@@ -63,3 +63,19 @@ export interface AppConfig {
   /** Saved LLM configuration presets */
   presets?: Record<string, LlmConfig>;
 }
+
+export interface Conversation {
+  id: string;
+  title: string;
+  timestamp: number;
+  cropped_image: string | null;
+  ocr_text: string | null;
+  messages: any[]; // Using any[] to bypass circular dependency on ChatMessage, or import directly
+}
+
+export interface ConversationMeta {
+  id: string;
+  title: string;
+  timestamp: number;
+  snippet: string;
+}

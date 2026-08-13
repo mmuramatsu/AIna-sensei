@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { AppConfig } from "../lib/types";
+import { AppConfig, Conversation, ConversationMeta } from "../lib/types";
 import { performOcr, performLlmQuery, ChatMessage } from "../services/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -89,6 +89,11 @@ export function Hud() {
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [config, setConfig] = useState<AppConfig | null>(null);
   
+  // Conversation history states
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [conversationsList, setConversationsList] = useState<ConversationMeta[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   const contentEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -122,6 +127,54 @@ export function Hud() {
     }
   }, [chatInput]);
 
+  const loadHistoryList = async () => {
+    try {
+      const list = await invoke<ConversationMeta[]>("list_conversations");
+      setConversationsList(list);
+    } catch (err) {
+      console.error("Failed to load conversation history:", err);
+    }
+  };
+
+  const startNewConversation = () => {
+    setCroppedImage(null);
+    setMessages([]);
+    setOcrText("");
+    setActiveConvId(null);
+    setError(null);
+    setLoading(false);
+    setOcrLoading(false);
+    setIsHistoryOpen(false);
+  };
+
+  const selectConversation = async (id: string) => {
+    try {
+      const conv = await invoke<Conversation>("load_conversation", { id });
+      setCroppedImage(conv.cropped_image);
+      setMessages(conv.messages);
+      setOcrText(conv.ocr_text || "");
+      setActiveConvId(conv.id);
+      setError(null);
+      setIsHistoryOpen(false);
+    } catch (err: any) {
+      console.error("Failed to load conversation:", err);
+      setError(err.message || "Failed to load the conversation.");
+    }
+  };
+
+  const deleteConv = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Prevent selecting the conversation
+    try {
+      await invoke("delete_conversation", { id });
+      if (activeConvId === id) {
+        startNewConversation();
+      }
+      loadHistoryList();
+    } catch (err) {
+      console.error("Failed to delete conversation:", err);
+    }
+  };
+
   // Load config on mount
   const fetchConfig = async () => {
     try {
@@ -136,6 +189,7 @@ export function Hud() {
 
   useEffect(() => {
     fetchConfig();
+    loadHistoryList();
 
     // Listen for image from the snipper overlay
     const unlistenPromise = listen<{ image: string }>("explain-image", async (event) => {
@@ -147,6 +201,9 @@ export function Hud() {
       setLoading(true);
       setOcrLoading(true);
       shouldScrollRef.current = true; // Lock to bottom for new query
+
+      const newId = String(Date.now());
+      setActiveConvId(newId);
 
       try {
         // Load latest config in case it changed
@@ -186,12 +243,32 @@ export function Hud() {
         ];
         setMessages(initialMessages);
 
+        const generatedTitle = detectedText 
+          ? (detectedText.length > 25 ? `${detectedText.slice(0, 25)}...` : detectedText)
+          : `Visual Analysis - ${new Date().toLocaleDateString()}`;
+
+        // Save initial turn state (assistant empty)
+        await invoke("save_conversation", {
+          conversation: {
+            id: newId,
+            title: generatedTitle,
+            timestamp: Date.now(),
+            cropped_image: imageBase64,
+            ocr_text: detectedText,
+            messages: initialMessages
+          }
+        });
+        await loadHistoryList();
+
+        let accumulatedResponse = "";
+
         // 3. Query LLM and Stream results
         await performLlmQuery(
           initialMessages,
           detectedText ? null : imageBase64, // Send image ONLY if OCR failed/bypassed
           currentConfig.llm,
           (chunk) => {
+            accumulatedResponse += chunk;
             setMessages((prev) => {
               const next = [...prev];
               if (next.length > 0) {
@@ -206,8 +283,27 @@ export function Hud() {
           }
         );
 
+        // Save final completed assistant response to history
+        const finalMessages = [
+          initialMessages[0],
+          { role: "assistant" as const, content: accumulatedResponse }
+        ];
+        await invoke("save_conversation", {
+          conversation: {
+            id: newId,
+            title: generatedTitle,
+            timestamp: Date.now(),
+            cropped_image: imageBase64,
+            ocr_text: detectedText,
+            messages: finalMessages
+          }
+        });
+        await loadHistoryList();
+
       } catch (err: any) {
         console.error("HUD processing pipeline failed:", err);
+        const errMsg = err instanceof Error ? err.stack || err.message : String(err);
+        await invoke("write_debug_log", { log: `[HUD Pipeline Error] ${errMsg}` });
         setError(err.message || "Failed to process the selection.");
       } finally {
         setOcrLoading(false);
@@ -261,6 +357,12 @@ export function Hud() {
     const userMsg = chatInput.trim();
     setChatInput("");
 
+    let id = activeConvId;
+    if (!id) {
+      id = String(Date.now());
+      setActiveConvId(id);
+    }
+
     // Setup message turns
     const updatedMessages: ChatMessage[] = [
       ...messages,
@@ -273,11 +375,30 @@ export function Hud() {
     try {
       const historyToSend = updatedMessages.slice(0, -1);
       
+      const currentTitle = conversationsList.find(c => c.id === id)?.title || 
+        (userMsg.length > 25 ? `${userMsg.slice(0, 25)}...` : userMsg);
+
+      // Save initial outgoing turn (assistant empty)
+      await invoke("save_conversation", {
+        conversation: {
+          id: id,
+          title: currentTitle,
+          timestamp: Date.now(),
+          cropped_image: croppedImage,
+          ocr_text: ocrText,
+          messages: updatedMessages
+        }
+      });
+      await loadHistoryList();
+
+      let accumulatedResponse = "";
+      
       await performLlmQuery(
         historyToSend,
         null, // No image re-upload on follow-up chat turns
         config!.llm,
         (chunk) => {
+          accumulatedResponse += chunk;
           setMessages((prev) => {
             const next = [...prev];
             if (next.length > 0) {
@@ -291,6 +412,24 @@ export function Hud() {
           });
         }
       );
+
+      // Save final completed assistant response to history
+      const finalMessages = [
+        ...historyToSend,
+        { role: "assistant", content: accumulatedResponse }
+      ];
+      await invoke("save_conversation", {
+        conversation: {
+          id: id,
+          title: currentTitle,
+          timestamp: Date.now(),
+          cropped_image: croppedImage,
+          ocr_text: ocrText,
+          messages: finalMessages
+        }
+      });
+      await loadHistoryList();
+
     } catch (err: any) {
       console.error("Chat message failed:", err);
       setMessages((prev) => {
@@ -335,10 +474,21 @@ export function Hud() {
   };
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-slate-950/90 text-white rounded-l-2xl border-l border-y border-white/10 shadow-2xl overflow-hidden backdrop-blur-xl">
+    <div className="w-screen h-screen flex flex-col bg-slate-950/90 text-white rounded-l-2xl border-l border-y border-white/10 shadow-2xl overflow-hidden backdrop-blur-xl relative">
       {/* Premium Glassmorphic Header */}
       <header className="flex justify-between items-center px-4 py-3 bg-white/5 border-b border-white/10 select-none flex-shrink-0">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsHistoryOpen(!isHistoryOpen)}
+            className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-white/50 hover:bg-white/10 hover:text-white transition-all cursor-pointer mr-1"
+            title="Conversation history"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
           <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-white/70">AIna-sensei HUD</h2>
         </div>
@@ -551,6 +701,93 @@ export function Hud() {
           </button>
         </form>
       )}
+
+      {/* Backdrop overlay for drawer */}
+      {isHistoryOpen && (
+        <div 
+          onClick={() => setIsHistoryOpen(false)}
+          className="absolute inset-0 z-30 bg-black/40 backdrop-blur-sm transition-all"
+        />
+      )}
+
+      {/* Sliding History Drawer */}
+      <div 
+        className={`absolute top-0 bottom-0 left-0 z-40 w-64 bg-slate-905 border-r border-white/10 shadow-2xl flex flex-col transition-transform duration-300 ${
+          isHistoryOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex justify-between items-center px-4 py-3 bg-white/5 border-b border-white/10 flex-shrink-0 select-none">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-white/70">History</h3>
+          <button 
+            type="button"
+            onClick={() => setIsHistoryOpen(false)}
+            className="text-white/40 hover:text-white/70 transition-all text-xs font-semibold cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="p-3 border-b border-white/5 flex-shrink-0">
+          <button
+            onClick={startNewConversation}
+            className="w-full bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 hover:text-indigo-200 text-xs font-semibold py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            New Explanation
+          </button>
+        </div>
+
+        {/* History Scrollable List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1.5 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          {conversationsList.length === 0 ? (
+            <div className="text-center text-white/30 text-xs py-8 italic">
+              No recent explanations
+            </div>
+          ) : (
+            conversationsList.map((conv) => (
+              <div
+                key={conv.id}
+                onClick={() => selectConversation(conv.id)}
+                className={`group flex justify-between items-center p-2.5 rounded-xl border text-left cursor-pointer transition-all ${
+                  activeConvId === conv.id
+                    ? "bg-indigo-600/10 border-indigo-500/30 text-white"
+                    : "bg-white/5 border-white/5 text-white/70 hover:bg-white/10 hover:border-white/10 hover:text-white"
+                }`}
+              >
+                <div className="min-w-0 flex-1 pr-2">
+                  <h4 className="text-xs font-semibold truncate leading-tight font-japanese">
+                    {conv.title}
+                  </h4>
+                  <p className="text-[10px] text-white/35 truncate mt-0.5 font-normal leading-normal">
+                    {conv.snippet || "No messages"}
+                  </p>
+                  <span className="text-[8px] text-white/20 block mt-1 font-mono">
+                    {new Date(conv.timestamp).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
+                  </span>
+                </div>
+                <button
+                  onClick={(e) => deleteConv(e, conv.id)}
+                  className="text-white/20 hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 flex-shrink-0 cursor-pointer"
+                  title="Delete conversation"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

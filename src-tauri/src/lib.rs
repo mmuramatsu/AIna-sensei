@@ -417,6 +417,111 @@ fn trigger_toggle_overlay(app: &AppHandle) {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Conversation {
+    pub id: String,
+    pub title: String,
+    pub timestamp: u64,
+    pub cropped_image: Option<String>,
+    pub ocr_text: Option<String>,
+    pub messages: Vec<ChatMessage>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ConversationMeta {
+    pub id: String,
+    pub title: String,
+    pub timestamp: u64,
+    pub snippet: String,
+}
+
+/// Resolves the absolute path to the local history folder inside the app configuration directory.
+fn get_history_dir(app: &AppHandle) -> PathBuf {
+    let mut path = app.path().app_config_dir().unwrap_or_default();
+    path.push("history");
+    let _ = fs::create_dir_all(&path);
+    path
+}
+
+#[tauri::command]
+fn list_conversations(app: AppHandle) -> Result<Vec<ConversationMeta>, String> {
+    let dir = get_history_dir(&app);
+    let mut list = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("json") {
+                if let Ok(content) = fs::read_to_string(&path) {
+                    if let Ok(conv) = serde_json::from_str::<Conversation>(&content) {
+                        let snippet = conv.messages.last()
+                            .map(|m| {
+                                if m.content.chars().count() > 60 {
+                                    format!("{}...", m.content.chars().take(60).collect::<String>())
+                                } else {
+                                    m.content.clone()
+                                }
+                            })
+                            .unwrap_or_else(|| "No messages".to_string());
+
+                        list.push(ConversationMeta {
+                            id: conv.id,
+                            title: conv.title,
+                            timestamp: conv.timestamp,
+                            snippet,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by timestamp descending (newest first)
+    list.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    Ok(list)
+}
+
+#[tauri::command]
+fn load_conversation(app: AppHandle, id: String) -> Result<Conversation, String> {
+    let mut path = get_history_dir(&app);
+    path.push(format!("{}.json", id));
+    
+    if !path.exists() {
+        return Err("Conversation not found".to_string());
+    }
+
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let conv = serde_json::from_str::<Conversation>(&content).map_err(|e| e.to_string())?;
+    Ok(conv)
+}
+
+#[tauri::command]
+fn save_conversation(app: AppHandle, conversation: Conversation) -> Result<(), String> {
+    let mut path = get_history_dir(&app);
+    path.push(format!("{}.json", conversation.id));
+    
+    let content = serde_json::to_string_pretty(&conversation).map_err(|e| e.to_string())?;
+    fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_conversation(app: AppHandle, id: String) -> Result<(), String> {
+    let mut path = get_history_dir(&app);
+    path.push(format!("{}.json", id));
+    
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Main entry point of the Tauri desktop application.
 /// Initializes plugins, hooks window intercept events, builds the tray menu, registers hotkeys, and runs the Tauri builder loop.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -513,7 +618,11 @@ pub fn run() {
             save_config,
             show_window,
             hide_window,
-            write_debug_log
+            write_debug_log,
+            list_conversations,
+            load_conversation,
+            save_conversation,
+            delete_conversation
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
