@@ -171,9 +171,12 @@ export function Settings() {
       });
 
       await relaunch();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to install update:", err);
-      setUpdateError("Failed to install update. Signature verification failed.");
+      const errorMsg = err instanceof Error ? err.stack || err.message : String(err);
+      // Log to local file for debug analysis
+      await invoke("write_debug_log", { log: `[Updater Error] ${errorMsg}` });
+      setUpdateError(`Failed to install update: ${err.message || String(err)}`);
       setIsDownloadingUpdate(false);
     }
   };
