@@ -1,23 +1,23 @@
 {
-  "version": "1.2.0",
-  "notes": "### What's New in v1.2.0:\n\n* **Persistent Conversation History**: Slide open the conversation history panel from the header (`☰`) to switch between past screenshots/chats or delete obsolete threads (`🗑️`).\n* **Single-Instance Protection**: Prevents duplicate app processes and global hotkey conflicts. Launching a second instance automatically focuses the running window and exits.\n* **Smooth Streaming Scroll**: Viewport locks to the bottom only if you're looking at the end of the response, permitting free scrolling during live token generation.\n* **Character Boundary Fixes**: Slicing logic now respects Unicode boundaries to prevent app crashes when loading Japanese character snippets.",
-  "pub_date": "2026-08-14T03:04:24.620Z",
+  "version": "1.2.1",
+  "notes": "### What's New in v1.2.1:\n\n* **Auto-Updater Robustness**: Improved updater logger to output exact diagnostic details in the settings screen and debug log file.\n* **Persistent Conversation History**: Slide open the conversation history panel from the header (`☰`) to switch between past screenshots/chats or delete obsolete threads (`🗑️`).\n* **Single-Instance Protection**: Prevents duplicate app processes and global hotkey conflicts. Launching a second instance automatically focuses the running window and exits.\n* **Smooth Streaming Scroll**: Viewport locks to the bottom only if you're looking at the end of the response, permitting free scrolling during live token generation.\n* **Character Boundary Fixes**: Slicing logic now respects Unicode boundaries to prevent app crashes when loading Japanese character snippets.",
+  "pub_date": "2026-08-14T03:31:36.883Z",
   "platforms": {
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWWJZbXNnai8rVDVOazU5cmNpZHJQMHBPUWh2a1NuTVk5Sy8zZEdhKys5ak4rWEVKVlZXdTUvWkVEMFA2OXJkUUNhSjg4SjFTT1RjYWd3Y004K1p0aUFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc2MzI3CWZpbGU6QUluYS1zZW5zZWlfMS4yLjBfYW1kNjQuZGViCk9BT1pmMGRKYnJUaklaTXhjWmVVdHpBUTROY1RmV2pDekRHdGIzTGR6Q0VMS1ZjdWxrelp3VWxneWVvN09QS0gyalFEOXhCZXNhcEJUVWd6UEs4R0FRPT0K",
-      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.0/AIna-sensei_1.2.0_amd64.deb"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWWZ5NTU2SFpEdmZKUHJuVTgvYmFQaWk0ZURQWFlaQSs5TXBJdXJMZys2WGF5cU1KNTVNOHhWVlVGQXpxR0VWQkNVcTY2cjBkd3oxajVkemlmR3JXQVE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc4MjM5CWZpbGU6QUluYS1zZW5zZWlfMS4yLjFfYW1kNjQuZGViCncwVFNDTmxKTGMvZk1GenRlek40Z2dwY1Nnb0FhTUc0V3pqbHBJN05ZdHhLMDQ0QnhhL09hMlVFM0Jla2hSMkxWRVkrOGhDTEl0M2tOSlFIdWlhZ0FnPT0K",
+      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.1/AIna-sensei_1.2.1_amd64.deb"
     },
     "linux-x86_64-deb": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWWJZbXNnai8rVDVOazU5cmNpZHJQMHBPUWh2a1NuTVk5Sy8zZEdhKys5ak4rWEVKVlZXdTUvWkVEMFA2OXJkUUNhSjg4SjFTT1RjYWd3Y004K1p0aUFJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc2MzI3CWZpbGU6QUluYS1zZW5zZWlfMS4yLjBfYW1kNjQuZGViCk9BT1pmMGRKYnJUaklaTXhjWmVVdHpBUTROY1RmV2pDekRHdGIzTGR6Q0VMS1ZjdWxrelp3VWxneWVvN09QS0gyalFEOXhCZXNhcEJUVWd6UEs4R0FRPT0K",
-      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.0/AIna-sensei_1.2.0_amd64.deb"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWWZ5NTU2SFpEdmZKUHJuVTgvYmFQaWk0ZURQWFlaQSs5TXBJdXJMZys2WGF5cU1KNTVNOHhWVlVGQXpxR0VWQkNVcTY2cjBkd3oxajVkemlmR3JXQVE0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc4MjM5CWZpbGU6QUluYS1zZW5zZWlfMS4yLjFfYW1kNjQuZGViCncwVFNDTmxKTGMvZk1GenRlek40Z2dwY1Nnb0FhTUc0V3pqbHBJN05ZdHhLMDQ0QnhhL09hMlVFM0Jla2hSMkxWRVkrOGhDTEl0M2tOSlFIdWlhZ0FnPT0K",
+      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.1/AIna-sensei_1.2.1_amd64.deb"
     },
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWVpzMVErRmozR2lrVkxyc1BpTm1zRktNTFNlUlBIOWEyRTJFUGlJVCt4ZVkwNEg5dnFyU1RYbWR4R1l3N3JvRGhRYWowb3BYaVo1a2YzaVZxODB5VWdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc2NjYyCWZpbGU6QUluYS1zZW5zZWlfMS4yLjBefeDY0LXNldHVwLmV4ZQpLZjNoM0U0NzFOSUlMQTBreUgrcDA4TlA2UTVRK3doYlVmR3A5SW0rOEdxMCthcHVWRmpSclNYRThnRjZlbGFYSmQ4V3Q5WTVkTHY0T0x2UXZpdXJBUT09Cg==",
-      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.0/AIna-sensei_1.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWWFGNm01a1o5Vnp1K0hmd3BwMU5YdUY1bDZGYjdYTXgvcWxySEJSK3N5WW1Zb29rRlcxdEZBQStBUmV3QmxLYlkyMGtPdC9US09oYTlBL1BMUHVoUEFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc4Mjk0CWZpbGU6QUluYS1zZW5zZWlfMS4yLjFfeDY0LXNldHVwLmV4ZQoydEpDeUpEcGloNm9HRHZkQ1VxNnFvQ29ySG9rK1gxZXVBY2tQUWVSMFZIb3d5NG9MNWZQVjFXU08zdEk2ZnBia1dyQ2VtaCs1Tk9SSHJyN0N3SGFDdz09Cg==",
+      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.1/AIna-sensei_1.2.1_x64-setup.exe"
     },
     "windows-x86_64-nsis": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWVpzMVErRmozR2lrVkxyc1BpTm1zRktNTFNlUlBIOWEyRTJFUGlJVCt4ZVkwNEg5dnFyU1RYbWR4R1l3N3JvRGhRYWowb3BYaVo1a2YzaVZxODB5VWdRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc2NjYyCWZpbGU6QUluYS1zZW5zZWlfMS4yLjBefeDY0LXNldHVwLmV4ZQpLZjNoM0U0NzFOSUlMQTBreUgrcDA4TlA2UTVRK3doYlVmR3A5SW0rOEdxMCthcHVWRmpSclNYRThnRjZlbGFYSmQ4V3Q5WTVkTHY0T0x2UXZpdXJBUT09Cg==",
-      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.0/AIna-sensei_1.2.0_x64-setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRSlZPMXNFTkZaWWFGNm01a1o5Vnp1K0hmd3BwMU5YdUY1bDZGYjdYTXgvcWxySEJSK3N5WW1Zb29rRlcxdEZBQStBUmV3QmxLYlkyMGtPdC9US09oYTlBL1BMUHVoUEFnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzg2Njc4Mjk0CWZpbGU6QUluYS1zZW5zZWlfMS4yLjFfeDY0LXNldHVwLmV4ZQoydEpDeUpEcGloNm9HRHZkQ1VxNnFvQ29ySG9rK1gxZXVBY2tQUWVSMFZIb3d5NG9MNWZQVjFXU08zdEk2ZnBia1dyQ2VtaCs1Tk9SSHJyN0N3SGFDdz09Cg==",
+      "url": "https://github.com/mmuramatsu/AIna-sensei/releases/download/v1.2.1/AIna-sensei_1.2.1_x64-setup.exe"
     }
   }
 }
