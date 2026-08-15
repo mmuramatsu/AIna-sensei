@@ -209,6 +209,8 @@ export function Settings() {
 
   const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const [isOcrModeDropdownOpen, setIsOcrModeDropdownOpen] = useState(false);
+  const [isOcrLangDropdownOpen, setIsOcrLangDropdownOpen] = useState(false);
   const [isUrlDropdownOpen, setIsUrlDropdownOpen] = useState(false);
   const [showAllUrls, setShowAllUrls] = useState(false);
   const [urlFocusedIndex, setUrlFocusedIndex] = useState(-1);
@@ -745,30 +747,118 @@ export function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-white/50 mb-1.5">OCR Mode</label>
-                    <select
-                      value={config.ocr.mode}
-                      onChange={(e) => updateConfigField("ocr", "mode", e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                    <div 
+                      className="relative text-left"
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setIsOcrModeDropdownOpen(false);
+                        }
+                      }}
                     >
-                      <option value="cloud_vision">Google Cloud Vision API (Cloud)</option>
-                      <option value="llm_multimodal">Direct LLM Multimodal (No OCR Key)</option>
-                    </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsOcrModeDropdownOpen(!isOcrModeDropdownOpen)}
+                        className="w-full text-left bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl pl-3 pr-10 py-2.5 text-sm text-white outline-none transition-all cursor-pointer relative"
+                      >
+                        {(() => {
+                          if (config.ocr.mode === "cloud_vision") return "Google Cloud Vision API (Cloud)";
+                          if (config.ocr.mode === "llm_multimodal") return "Direct LLM Multimodal (No OCR Key)";
+                          return config.ocr.mode;
+                        })()}
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                          <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isOcrModeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </span>
+                      </button>
+                      {isOcrModeDropdownOpen && (
+                        <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-[#18181b] border border-white/15 rounded-xl shadow-xl py-1 outline-none text-left scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          <li
+                            onMouseDown={() => {
+                              updateConfigField("ocr", "mode", "cloud_vision");
+                              setIsOcrModeDropdownOpen(false);
+                            }}
+                            className={`px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 cursor-pointer transition-all ${
+                              config.ocr.mode === "cloud_vision" ? "text-blue-400 font-semibold bg-white/5" : ""
+                            }`}
+                          >
+                            Google Cloud Vision API (Cloud)
+                          </li>
+                          <li
+                            onMouseDown={() => {
+                              updateConfigField("ocr", "mode", "llm_multimodal");
+                              setIsOcrModeDropdownOpen(false);
+                            }}
+                            className={`px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 cursor-pointer transition-all ${
+                              config.ocr.mode === "llm_multimodal" ? "text-blue-400 font-semibold bg-white/5" : ""
+                            }`}
+                          >
+                            Direct LLM Multimodal (No OCR Key)
+                          </li>
+                        </ul>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-white/50 mb-1.5">Target Recognition Language</label>
-                    <select
-                      value={config.ocr.target_language}
-                      onChange={(e) => updateConfigField("ocr", "target_language", e.target.value)}
-                      className="w-full bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-all cursor-pointer"
+                    <div 
+                      className="relative text-left"
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          setIsOcrLangDropdownOpen(false);
+                        }
+                      }}
                     >
-                      <option value="ja">Japanese (ja)</option>
-                      <option value="en">English (en)</option>
-                      <option value="es">Spanish (es)</option>
-                      <option value="zh">Chinese (zh)</option>
-                      <option value="ko">Korean (ko)</option>
-                      <option value="fr">French (fr)</option>
-                      <option value="de">German (de)</option>
-                    </select>
+                      <button
+                        type="button"
+                        onClick={() => setIsOcrLangDropdownOpen(!isOcrLangDropdownOpen)}
+                        className="w-full text-left bg-black/40 border border-white/15 focus:border-blue-500 rounded-xl pl-3 pr-10 py-2.5 text-sm text-white outline-none transition-all cursor-pointer relative"
+                      >
+                        {(() => {
+                          const langMap: Record<string, string> = {
+                            ja: "Japanese (ja)",
+                            en: "English (en)",
+                            es: "Spanish (es)",
+                            zh: "Chinese (zh)",
+                            ko: "Korean (ko)",
+                            fr: "French (fr)",
+                            de: "German (de)"
+                          };
+                          return langMap[config.ocr.target_language] || config.ocr.target_language;
+                        })()}
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none">
+                          <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${isOcrLangDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </span>
+                      </button>
+                      {isOcrLangDropdownOpen && (
+                        <ul className="absolute left-0 right-0 z-50 mt-1.5 max-h-60 overflow-y-auto bg-[#18181b] border border-white/15 rounded-xl shadow-xl py-1 outline-none text-left scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                          {[
+                            { code: "ja", name: "Japanese (ja)" },
+                            { code: "en", name: "English (en)" },
+                            { code: "es", name: "Spanish (es)" },
+                            { code: "zh", name: "Chinese (zh)" },
+                            { code: "ko", name: "Korean (ko)" },
+                            { code: "fr", name: "French (fr)" },
+                            { code: "de", name: "German (de)" }
+                          ].map((lang) => (
+                            <li
+                              key={lang.code}
+                              onMouseDown={() => {
+                                updateConfigField("ocr", "target_language", lang.code);
+                                setIsOcrLangDropdownOpen(false);
+                              }}
+                              className={`px-3 py-2 text-xs text-white/80 hover:text-white hover:bg-white/5 cursor-pointer transition-all ${
+                                config.ocr.target_language === lang.code ? "text-blue-400 font-semibold bg-white/5" : ""
+                              }`}
+                            >
+                              {lang.name}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 </div>
 
