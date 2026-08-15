@@ -7,6 +7,13 @@ import { performOcr, performLlmQuery, ChatMessage } from "../services/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+interface LastRequest {
+  type: "capture" | "chat";
+  imageBase64?: string;
+  ocrText?: string;
+  chatMessage?: string;
+}
+
 const markdownComponents = {
   h1: ({ node, ...props }: any) => (
     <h2 className="text-lg font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 mt-6 mb-3" {...props} />
@@ -93,6 +100,7 @@ export function Hud() {
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [conversationsList, setConversationsList] = useState<ConversationMeta[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [lastRequest, setLastRequest] = useState<LastRequest | null>(null);
 
   const contentEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -205,6 +213,11 @@ export function Hud() {
       const newId = String(Date.now());
       setActiveConvId(newId);
 
+      setLastRequest({
+        type: "capture",
+        imageBase64: imageBase64
+      });
+
       try {
         // Load latest config in case it changed
         const currentConfig = await invoke<AppConfig>("load_config");
@@ -221,6 +234,11 @@ export function Hud() {
           try {
             detectedText = await performOcr(imageBase64, currentConfig.ocr);
             setOcrText(detectedText);
+            setLastRequest({
+              type: "capture",
+              imageBase64: imageBase64,
+              ocrText: detectedText
+            });
           } catch (ocrErr: any) {
             console.warn("OCR failed, falling back to direct LLM processing:", ocrErr);
             // Don't fail the whole request, try LLM fallback directly
@@ -356,6 +374,12 @@ export function Hud() {
     shouldScrollRef.current = true; // Lock to bottom for new outgoing message
     const userMsg = chatInput.trim();
     setChatInput("");
+    setError(null);
+
+    setLastRequest({
+      type: "chat",
+      chatMessage: userMsg
+    });
 
     let id = activeConvId;
     if (!id) {
@@ -432,6 +456,7 @@ export function Hud() {
 
     } catch (err: any) {
       console.error("Chat message failed:", err);
+      setError(err.message || "Failed to query the AI backend.");
       setMessages((prev) => {
         const next = [...prev];
         if (next.length > 0) {
@@ -444,6 +469,203 @@ export function Hud() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (!lastRequest || loading) return;
+    setError(null);
+    setLoading(true);
+
+    if (lastRequest.type === "capture") {
+      const imageBase64 = lastRequest.imageBase64!;
+      try {
+        const currentConfig = await invoke<AppConfig>("load_config");
+        setConfig(currentConfig);
+
+        let detectedText = lastRequest.ocrText;
+        
+        if (
+          detectedText === undefined &&
+          currentConfig.ocr.mode === "cloud_vision" &&
+          currentConfig.ocr.api_key &&
+          currentConfig.ocr.api_key !== "YOUR_VISION_API_KEY"
+        ) {
+          setOcrLoading(true);
+          try {
+            detectedText = await performOcr(imageBase64, currentConfig.ocr);
+            setOcrText(detectedText);
+            setLastRequest(prev => prev ? { ...prev, ocrText: detectedText } : null);
+          } catch (ocrErr) {
+            console.warn("OCR retry failed:", ocrErr);
+          } finally {
+            setOcrLoading(false);
+          }
+        }
+
+        const finalPrompt = detectedText
+          ? currentConfig.llm.system_prompt.replace("{extracted_text}", detectedText)
+          : `${currentConfig.llm.system_prompt}\n\n[NO OCR DETECTED - PLEASE TRANSCRIBE AND ANALYZE THE TARGET IMAGE DIRECTLY]`;
+
+        const initialMessages = [
+          { role: "user" as const, content: detectedText ? finalPrompt : `${finalPrompt}\n\n[Analyzing the screenshot directly]` },
+          { role: "assistant" as const, content: "" }
+        ];
+        setMessages(initialMessages);
+
+        let id = activeConvId || String(Date.now());
+        if (!activeConvId) {
+          setActiveConvId(id);
+        }
+
+        const currentTitle = detectedText
+          ? (detectedText.length > 25 ? `${detectedText.slice(0, 25)}...` : detectedText)
+          : `Visual Analysis - ${new Date().toLocaleDateString()}`;
+
+        await invoke("save_conversation", {
+          conversation: {
+            id,
+            title: currentTitle,
+            timestamp: Date.now(),
+            cropped_image: imageBase64,
+            ocr_text: detectedText || "",
+            messages: initialMessages
+          }
+        });
+        await loadHistoryList();
+
+        let accumulatedResponse = "";
+        await performLlmQuery(
+          initialMessages,
+          detectedText ? null : imageBase64,
+          currentConfig.llm,
+          (chunk) => {
+            accumulatedResponse += chunk;
+            setMessages((prev) => {
+              const next = [...prev];
+              if (next.length > 0) {
+                const lastIdx = next.length - 1;
+                next[lastIdx] = { ...next[lastIdx], content: next[lastIdx].content + chunk };
+              }
+              return next;
+            });
+          }
+        );
+
+        const finalMessages = [
+          initialMessages[0],
+          { role: "assistant" as const, content: accumulatedResponse }
+        ];
+        await invoke("save_conversation", {
+          conversation: {
+            id,
+            title: currentTitle,
+            timestamp: Date.now(),
+            cropped_image: imageBase64,
+            ocr_text: detectedText || "",
+            messages: finalMessages
+          }
+        });
+        await loadHistoryList();
+
+      } catch (err: any) {
+        console.error("Retry capture failed:", err);
+        const errMsg = err instanceof Error ? err.stack || err.message : String(err);
+        await invoke("write_debug_log", { log: `[HUD Retry Error] ${errMsg}` });
+        setError(err.message || "Failed to process the selection.");
+      } finally {
+        setOcrLoading(false);
+        setLoading(false);
+      }
+
+    } else if (lastRequest.type === "chat") {
+      const userMsg = lastRequest.chatMessage!;
+      if (!activeConvId) return;
+
+      let baseHistory = [...messages];
+      if (baseHistory.length > 0 && baseHistory[baseHistory.length - 1].role === "assistant") {
+        baseHistory.pop();
+      }
+      if (baseHistory.length > 0 && baseHistory[baseHistory.length - 1].role === "user") {
+        // user message is already there
+      } else {
+        baseHistory.push({ role: "user", content: userMsg });
+      }
+
+      const updatedMessages = [
+        ...baseHistory,
+        { role: "assistant" as const, content: "" }
+      ];
+      setMessages(updatedMessages);
+
+      try {
+        const historyToSend = updatedMessages.slice(0, -1);
+        
+        const currentTitle = conversationsList.find(c => c.id === activeConvId)?.title || 
+          (userMsg.length > 25 ? `${userMsg.slice(0, 25)}...` : userMsg);
+
+        await invoke("save_conversation", {
+          conversation: {
+            id: activeConvId,
+            title: currentTitle,
+            timestamp: Date.now(),
+            cropped_image: croppedImage,
+            ocr_text: ocrText,
+            messages: updatedMessages
+          }
+        });
+        await loadHistoryList();
+
+        let accumulatedResponse = "";
+        await performLlmQuery(
+          historyToSend,
+          null,
+          config!.llm,
+          (chunk) => {
+            accumulatedResponse += chunk;
+            setMessages((prev) => {
+              const next = [...prev];
+              if (next.length > 0) {
+                const lastIdx = next.length - 1;
+                next[lastIdx] = { ...next[lastIdx], content: next[lastIdx].content + chunk };
+              }
+              return next;
+            });
+          }
+        );
+
+        const finalMessages = [
+          ...historyToSend,
+          { role: "assistant", content: accumulatedResponse }
+        ];
+        await invoke("save_conversation", {
+          conversation: {
+            id: activeConvId,
+            title: currentTitle,
+            timestamp: Date.now(),
+            cropped_image: croppedImage,
+            ocr_text: ocrText,
+            messages: finalMessages
+          }
+        });
+        await loadHistoryList();
+
+      } catch (err: any) {
+        console.error("Retry chat failed:", err);
+        setError(err.message || "Failed to query the AI backend.");
+        setMessages((prev) => {
+          const next = [...prev];
+          if (next.length > 0) {
+            next[next.length - 1] = {
+              role: "assistant",
+              content: `⚠️ Error: ${err.message || "Failed to query the AI backend."}`
+            };
+          }
+          return next;
+        });
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -608,18 +830,6 @@ export function Hud() {
           </div>
         )}
 
-        {/* Error Message banner */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs flex gap-2.5 items-start flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <div>
-              <p className="font-semibold">Pipeline Error</p>
-              <p className="text-white/60 mt-0.5">{error}</p>
-            </div>
-          </div>
-        )}
 
         {/* Conversation Chat Feed */}
         {messages.length > 0 && (
@@ -672,6 +882,31 @@ export function Hud() {
             })}
             
             <div ref={contentEndRef} />
+          </div>
+        )}
+
+        {/* Error Message banner */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-red-400 text-xs flex justify-between items-start gap-3 flex-shrink-0 animate-fade-in mt-4">
+            <div className="flex gap-2.5 items-start">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div>
+                <p className="font-semibold">Pipeline Error</p>
+                <p className="text-white/60 mt-0.5">{error}</p>
+              </div>
+            </div>
+            {lastRequest && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={loading}
+                className="bg-red-500/20 hover:bg-red-500/35 disabled:opacity-40 border border-red-500/30 text-red-200 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex-shrink-0 active:scale-95"
+              >
+                Retry
+              </button>
+            )}
           </div>
         )}
       </main>
