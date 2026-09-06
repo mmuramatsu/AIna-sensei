@@ -10,7 +10,7 @@
 //! - Providing system tray menus and handling close/quit events.
 
 use base64::prelude::*;
-use screenshots::image::{DynamicImage, ImageFormat, RgbaImage};
+use screenshots::image::{DynamicImage, ImageFormat, RgbaImage, imageops};
 use screenshots::Screen;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -362,8 +362,8 @@ fn crop_image(
         return Err("Crop area width or height is zero".to_string());
     }
 
-    let dynamic_img = DynamicImage::ImageRgba8(image.clone());
-    let cropped_img = dynamic_img.crop_imm(px, py, pw, ph);
+    let sub = imageops::crop_imm(image, px, py, pw, ph);
+    let cropped_img = DynamicImage::ImageRgba8(sub.to_image());
 
     let mut png_bytes = Vec::new();
     cropped_img
@@ -433,6 +433,16 @@ pub struct Conversation {
     pub messages: Vec<ChatMessage>,
 }
 
+/// Lightweight struct for listing conversations without loading image data.
+#[derive(Deserialize)]
+struct ConversationLite {
+    id: String,
+    title: String,
+    timestamp: u64,
+    // cropped_image intentionally omitted - serde skips without allocating
+    messages: Vec<ChatMessage>,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ConversationMeta {
     pub id: String,
@@ -459,7 +469,7 @@ fn list_conversations(app: AppHandle) -> Result<Vec<ConversationMeta>, String> {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
                 if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(conv) = serde_json::from_str::<Conversation>(&content) {
+                    if let Ok(conv) = serde_json::from_str::<ConversationLite>(&content) {
                         let snippet = conv.messages.last()
                             .map(|m| {
                                 if m.content.chars().count() > 60 {
