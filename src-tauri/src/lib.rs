@@ -311,19 +311,20 @@ fn capture_screen(state: tauri::State<'_, AppState>) -> Result<String, String> {
 /// Tauri command to fetch the last cached full-screen screenshot, encoded as base64 data url.
 #[tauri::command]
 fn get_captured_screen(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let last_capture_lock = state.last_capture.lock().unwrap();
+    let last_capture_lock = state.last_capture.lock().map_err(|e| e.to_string())?;
     let image = last_capture_lock
         .as_ref()
         .ok_or_else(|| "No screen capture stored".to_string())?;
 
-    let mut png_bytes = Vec::new();
+    let mut jpeg_bytes = Vec::new();
     let dynamic_img = DynamicImage::ImageRgba8(image.clone());
     dynamic_img
-        .write_to(&mut Cursor::new(&mut png_bytes), ImageFormat::Png)
+        .to_rgb8()
+        .write_to(&mut Cursor::new(&mut jpeg_bytes), ImageFormat::Jpeg)
         .map_err(|e| format!("Failed to encode screen capture: {}", e))?;
 
-    let b64 = BASE64_STANDARD.encode(&png_bytes);
-    Ok(format!("data:image/png;base64,{}", b64))
+    let b64 = BASE64_STANDARD.encode(&jpeg_bytes);
+    Ok(format!("data:image/jpeg;base64,{}", b64))
 }
 
 /// Tauri command to crop a smaller sub-region from the cached full-screen image buffer
