@@ -312,7 +312,7 @@ export function Hud() {
           : `Visual Analysis - ${new Date().toLocaleDateString()}`;
 
         // Save initial turn state (assistant empty)
-        await invoke("save_conversation", {
+        invoke("save_conversation", {
           conversation: {
             id: newId,
             title: generatedTitle,
@@ -322,9 +322,10 @@ export function Hud() {
             messages: initialMessages
           }
         });
-        await loadHistoryList();
+        loadHistoryList();
 
         let accumulatedResponse = "";
+        let rafId = 0;
 
         // 3. Query LLM and Stream results
         await performLlmQuery(
@@ -333,19 +334,36 @@ export function Hud() {
           currentConfig.llm,
           (chunk) => {
             accumulatedResponse += chunk;
-            setMessages((prev) => {
-              const next = [...prev];
-              if (next.length > 0) {
-                const lastIdx = next.length - 1;
-                next[lastIdx] = {
-                  ...next[lastIdx],
-                  content: next[lastIdx].content + chunk,
-                };
-              }
-              return next;
-            });
+            if (!rafId) {
+              rafId = requestAnimationFrame(() => {
+                const snapshot = accumulatedResponse;
+                setMessages((prev) => {
+                  const next = [...prev];
+                  if (next.length > 0) {
+                    const lastIdx = next.length - 1;
+                    next[lastIdx] = {
+                      ...next[lastIdx],
+                      content: snapshot,
+                    };
+                  }
+                  return next;
+                });
+                rafId = 0;
+              });
+            }
           }
         );
+
+        // Flush any remaining buffered content after stream ends
+        cancelAnimationFrame(rafId);
+        setMessages((prev) => {
+          const next = [...prev];
+          if (next.length > 0) {
+            const lastIdx = next.length - 1;
+            next[lastIdx] = { ...next[lastIdx], content: accumulatedResponse };
+          }
+          return next;
+        });
 
         // Save final completed assistant response to history
         const finalMessages = [
@@ -449,7 +467,7 @@ export function Hud() {
         (userMsg.length > 25 ? `${userMsg.slice(0, 25)}...` : userMsg);
 
       // Save initial outgoing turn (assistant empty)
-      await invoke("save_conversation", {
+      invoke("save_conversation", {
         conversation: {
           id: id,
           title: currentTitle,
@@ -459,9 +477,10 @@ export function Hud() {
           messages: updatedMessages
         }
       });
-      await loadHistoryList();
+      loadHistoryList();
 
       let accumulatedResponse = "";
+      let rafId = 0;
       
       await performLlmQuery(
         historyToSend,
@@ -469,19 +488,36 @@ export function Hud() {
         config!.llm,
         (chunk) => {
           accumulatedResponse += chunk;
-          setMessages((prev) => {
-            const next = [...prev];
-            if (next.length > 0) {
-              const lastIdx = next.length - 1;
-              next[lastIdx] = {
-                ...next[lastIdx],
-                content: next[lastIdx].content + chunk,
-              };
-            }
-            return next;
-          });
+          if (!rafId) {
+            rafId = requestAnimationFrame(() => {
+              const snapshot = accumulatedResponse;
+              setMessages((prev) => {
+                const next = [...prev];
+                if (next.length > 0) {
+                  const lastIdx = next.length - 1;
+                  next[lastIdx] = {
+                    ...next[lastIdx],
+                    content: snapshot,
+                  };
+                }
+                return next;
+              });
+              rafId = 0;
+            });
+          }
         }
       );
+
+      // Flush any remaining buffered content after stream ends
+      cancelAnimationFrame(rafId);
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next.length > 0) {
+          const lastIdx = next.length - 1;
+          next[lastIdx] = { ...next[lastIdx], content: accumulatedResponse };
+        }
+        return next;
+      });
 
       // Save final completed assistant response to history
       const finalMessages = [
@@ -568,7 +604,7 @@ export function Hud() {
           ? (detectedText.length > 25 ? `${detectedText.slice(0, 25)}...` : detectedText)
           : `Visual Analysis - ${new Date().toLocaleDateString()}`;
 
-        await invoke("save_conversation", {
+        invoke("save_conversation", {
           conversation: {
             id,
             title: currentTitle,
@@ -578,25 +614,43 @@ export function Hud() {
             messages: initialMessages
           }
         });
-        await loadHistoryList();
+        loadHistoryList();
 
         let accumulatedResponse = "";
+        let rafId = 0;
         await performLlmQuery(
           initialMessages,
           detectedText ? null : imageBase64,
           currentConfig.llm,
           (chunk) => {
             accumulatedResponse += chunk;
-            setMessages((prev) => {
-              const next = [...prev];
-              if (next.length > 0) {
-                const lastIdx = next.length - 1;
-                next[lastIdx] = { ...next[lastIdx], content: next[lastIdx].content + chunk };
-              }
-              return next;
-            });
+            if (!rafId) {
+              rafId = requestAnimationFrame(() => {
+                const snapshot = accumulatedResponse;
+                setMessages((prev) => {
+                  const next = [...prev];
+                  if (next.length > 0) {
+                    const lastIdx = next.length - 1;
+                    next[lastIdx] = { ...next[lastIdx], content: snapshot };
+                  }
+                  return next;
+                });
+                rafId = 0;
+              });
+            }
           }
         );
+
+        // Flush any remaining buffered content after stream ends
+        cancelAnimationFrame(rafId);
+        setMessages((prev) => {
+          const next = [...prev];
+          if (next.length > 0) {
+            const lastIdx = next.length - 1;
+            next[lastIdx] = { ...next[lastIdx], content: accumulatedResponse };
+          }
+          return next;
+        });
 
         const finalMessages = [
           initialMessages[0],
@@ -650,7 +704,7 @@ export function Hud() {
         const currentTitle = conversationsList.find(c => c.id === activeConvId)?.title || 
           (userMsg.length > 25 ? `${userMsg.slice(0, 25)}...` : userMsg);
 
-        await invoke("save_conversation", {
+        invoke("save_conversation", {
           conversation: {
             id: activeConvId,
             title: currentTitle,
@@ -660,25 +714,43 @@ export function Hud() {
             messages: updatedMessages
           }
         });
-        await loadHistoryList();
+        loadHistoryList();
 
         let accumulatedResponse = "";
+        let rafId = 0;
         await performLlmQuery(
           historyToSend,
           null,
           config!.llm,
           (chunk) => {
             accumulatedResponse += chunk;
-            setMessages((prev) => {
-              const next = [...prev];
-              if (next.length > 0) {
-                const lastIdx = next.length - 1;
-                next[lastIdx] = { ...next[lastIdx], content: next[lastIdx].content + chunk };
-              }
-              return next;
-            });
+            if (!rafId) {
+              rafId = requestAnimationFrame(() => {
+                const snapshot = accumulatedResponse;
+                setMessages((prev) => {
+                  const next = [...prev];
+                  if (next.length > 0) {
+                    const lastIdx = next.length - 1;
+                    next[lastIdx] = { ...next[lastIdx], content: snapshot };
+                  }
+                  return next;
+                });
+                rafId = 0;
+              });
+            }
           }
         );
+
+        // Flush any remaining buffered content after stream ends
+        cancelAnimationFrame(rafId);
+        setMessages((prev) => {
+          const next = [...prev];
+          if (next.length > 0) {
+            const lastIdx = next.length - 1;
+            next[lastIdx] = { ...next[lastIdx], content: accumulatedResponse };
+          }
+          return next;
+        });
 
         const finalMessages = [
           ...historyToSend,
