@@ -6,6 +6,7 @@ import { AppConfig, Conversation, ConversationMeta } from "../lib/types";
 import { performOcr, performLlmQuery, ChatMessage } from "../services/api";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 
 interface LastRequest {
   type: "capture" | "chat";
@@ -101,7 +102,16 @@ const markdownComponents = {
         </code>
       </pre>
     );
-  }
+  },
+  ruby: ({ node, ...props }: any) => (
+    <ruby className="ruby font-japanese mx-0.5" {...props} />
+  ),
+  rt: ({ node, ...props }: any) => (
+    <rt className="text-[10px] text-indigo-300 font-normal select-none" {...props} />
+  ),
+  rp: ({ node, ...props }: any) => (
+    <rp className="text-white/20 text-xs" {...props} />
+  )
 };
 
 const ChatBubble = memo(function ChatBubble({ msg }: { msg: ChatMessage }) {
@@ -112,6 +122,7 @@ const ChatBubble = memo(function ChatBubble({ msg }: { msg: ChatMessage }) {
       {msg.content ? (
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw]}
           components={markdownComponents}
         >
           {cleaned}
