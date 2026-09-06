@@ -573,9 +573,16 @@ pub fn run() {
                         };
 
                         if is_capture {
-                            trigger_capture(app, &state);
+                            let app_handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let state = app_handle.state::<AppState>();
+                                trigger_capture(&app_handle, &state);
+                            });
                         } else if is_toggle {
-                            trigger_toggle_overlay(app);
+                            let app_handle = app.clone();
+                            tauri::async_runtime::spawn(async move {
+                                trigger_toggle_overlay(&app_handle);
+                            });
                         }
                     }
                 })
