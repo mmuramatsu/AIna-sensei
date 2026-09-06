@@ -334,34 +334,31 @@ async function streamGemini(
   let buffer = "";
 
   try {
-    await invoke("write_debug_log", { log: `\n=== GEMINI STREAM STARTED FOR ${model} ===` });
+    invoke("write_debug_log", { log: `\n=== GEMINI STREAM STARTED FOR ${model} ===` });
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-      await invoke("write_debug_log", { log: `--- RAW CHUNK RECEIVED ---\n${chunk}` });
 
       buffer += chunk;
       const { items, remaining } = extractTextFromJSONChunks(buffer);
       buffer = remaining;
 
       for (const item of items) {
-        await invoke("write_debug_log", { log: `--- PARSED ITEM OBJECT ---\n${JSON.stringify(item)}` });
         const text = item.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          await invoke("write_debug_log", { log: `--- EXTRACTED TEXT CHUNK ---\n${text}` });
           onChunk(text);
           fullText += text;
         }
       }
     }
   } catch (err: any) {
-    await invoke("write_debug_log", { log: `--- STREAM ITERATION ERROR ---\n${err.message || err}` });
+    invoke("write_debug_log", { log: `--- STREAM ITERATION ERROR ---\n${err.message || err}` });
     throw err;
   } finally {
     reader.releaseLock();
-    await invoke("write_debug_log", { log: `=== GEMINI STREAM FINISHED (Full text length: ${fullText.length}) ===\n` });
+    invoke("write_debug_log", { log: `=== GEMINI STREAM FINISHED (Full text length: ${fullText.length}) ===\n` });
   }
 
   return fullText;
