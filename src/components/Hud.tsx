@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, memo, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -13,6 +13,25 @@ interface LastRequest {
   ocrText?: string;
   chatMessage?: string;
 }
+
+const cleanExplanation = (text: string) => {
+  if (!text) return "";
+  return text
+    .replace(/\$\\rightarrow\$/g, "→")
+    .replace(/\\rightarrow/g, "→")
+    .replace(/\$\\implies\$/g, "⇒")
+    .replace(/\\implies/g, "⇒")
+    .replace(/\$\\leftrightarrow\$/g, "↔")
+    .replace(/\\leftrightarrow/g, "↔")
+    .replace(/\$\\sim\$/g, "~")
+    .replace(/\\sim/g, "~")
+    .replace(/\$\\times\$/g, "×")
+    .replace(/\\times/g, "×")
+    .replace(/\$\\cdot\$/g, "•")
+    .replace(/\\cdot/g, "•")
+    .replace(/\$\\dots\$/g, "…")
+    .replace(/\\dots/g, "…");
+};
 
 const markdownComponents = {
   h1: ({ node, ...props }: any) => (
@@ -84,6 +103,33 @@ const markdownComponents = {
     );
   }
 };
+
+const ChatBubble = memo(function ChatBubble({ msg }: { msg: ChatMessage }) {
+  const cleaned = useMemo(() => cleanExplanation(msg.content), [msg.content]);
+
+  return msg.role === "assistant" ? (
+    <div className="text-sm overflow-hidden leading-relaxed">
+      {msg.content ? (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={markdownComponents}
+        >
+          {cleaned}
+        </ReactMarkdown>
+      ) : (
+        <div className="space-y-2 py-2">
+          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4" />
+          <div className="h-4 bg-white/10 rounded animate-pulse w-5/6" />
+          <div className="h-4 bg-white/10 rounded animate-pulse w-2/3" />
+        </div>
+      )}
+    </div>
+  ) : (
+    <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
+      {msg.content}
+    </p>
+  );
+});
 
 export function Hud() {
   const [loading, setLoading] = useState(false);
@@ -676,25 +722,6 @@ export function Hud() {
     }
   };
 
-  const cleanExplanation = (text: string) => {
-    if (!text) return "";
-    return text
-      .replace(/\$\\rightarrow\$/g, "→")
-      .replace(/\\rightarrow/g, "→")
-      .replace(/\$\\implies\$/g, "⇒")
-      .replace(/\\implies/g, "⇒")
-      .replace(/\$\\leftrightarrow\$/g, "↔")
-      .replace(/\\leftrightarrow/g, "↔")
-      .replace(/\$\\sim\$/g, "~")
-      .replace(/\\sim/g, "~")
-      .replace(/\$\\times\$/g, "×")
-      .replace(/\\times/g, "×")
-      .replace(/\$\\cdot\$/g, "•")
-      .replace(/\\cdot/g, "•")
-      .replace(/\$\\dots\$/g, "…")
-      .replace(/\\dots/g, "…");
-  };
-
   return (
     <div className="w-screen h-screen flex flex-col bg-slate-950/90 text-white rounded-l-2xl border-l border-y border-white/10 shadow-2xl overflow-hidden backdrop-blur-xl relative">
       {/* Premium Glassmorphic Header */}
@@ -854,29 +881,7 @@ export function Hud() {
                     </span>
                   </div>
 
-                  {msg.role === "assistant" ? (
-                    <div className="text-sm overflow-hidden leading-relaxed">
-                      {msg.content ? (
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={markdownComponents}
-                        >
-                          {cleanExplanation(msg.content)}
-                        </ReactMarkdown>
-                      ) : (
-                        /* Shimmer loading feedback while AI is processing the output chunk */
-                        <div className="space-y-2 py-2">
-                          <div className="h-4 bg-white/10 rounded animate-pulse w-3/4" />
-                          <div className="h-4 bg-white/10 rounded animate-pulse w-5/6" />
-                          <div className="h-4 bg-white/10 rounded animate-pulse w-2/3" />
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                      {msg.content}
-                    </p>
-                  )}
+                  <ChatBubble msg={msg} />
                 </div>
               );
             })}
