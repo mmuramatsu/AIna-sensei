@@ -227,48 +227,49 @@ export function extractTextFromJSONChunks(buffer: string): { items: any[]; remai
   let inString = false;
   let escape = false;
   let startIdx = -1;
+  let lastEndIdx = 0;
+  const len = buffer.length;
 
-  for (let i = 0; i < buffer.length; i++) {
-    const char = buffer[i];
+  for (let i = 0; i < len; i++) {
+    const code = buffer.charCodeAt(i);
 
     if (escape) {
       escape = false;
       continue;
     }
 
-    if (char === "\\") {
+    if (code === 92) { // '\\'
       escape = true;
       continue;
     }
 
-    if (char === '"') {
+    if (code === 34) { // '"'
       inString = !inString;
       continue;
     }
 
     if (!inString) {
-      if (char === "{") {
+      if (code === 123) { // '{'
         if (braceCount === 0) {
           startIdx = i;
         }
         braceCount++;
-      } else if (char === "}") {
+      } else if (code === 125) { // '}'
         braceCount--;
         if (braceCount === 0 && startIdx !== -1) {
-          const chunkStr = buffer.slice(startIdx, i + 1);
           try {
-            const obj = JSON.parse(chunkStr);
-            items.push(obj);
+            items.push(JSON.parse(buffer.slice(startIdx, i + 1)));
           } catch (_) {
             // Invalid/incomplete JSON
           }
+          lastEndIdx = i + 1;
           startIdx = -1;
         }
       }
     }
   }
 
-  const remaining = startIdx !== -1 ? buffer.slice(startIdx) : "";
+  const remaining = startIdx !== -1 ? buffer.slice(startIdx) : buffer.slice(lastEndIdx);
   return { items, remaining };
 }
 
