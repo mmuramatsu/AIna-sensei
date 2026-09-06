@@ -289,9 +289,21 @@ async function streamGemini(
   const model = config.model || "gemini-1.5-flash";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${config.cloud_api_key}`;
 
+  // Gemini requires the conversation to end with a user turn.
+  // Strip any trailing empty assistant turns or assistant turns without content.
+  const validMessages = messages.filter((msg) => msg.role === "user" || (msg.content && msg.content.trim().length > 0));
+  while (validMessages.length > 0 && validMessages[validMessages.length - 1].role === "assistant") {
+    validMessages.pop();
+  }
+
+  // Fallback: if empty, provide a default user turn
+  if (validMessages.length === 0) {
+    validMessages.push({ role: "user", content: "Analyze this Japanese text segment." });
+  }
+
   const contents: any[] = [];
 
-  messages.forEach((msg, idx) => {
+  validMessages.forEach((msg, idx) => {
     const role = msg.role === "assistant" ? "model" : "user";
     const parts: any[] = [];
 

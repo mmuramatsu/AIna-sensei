@@ -329,7 +329,7 @@ export function Hud() {
 
         // 3. Query LLM and Stream results
         await performLlmQuery(
-          initialMessages,
+          initialMessages.slice(0, -1),
           detectedText ? null : imageBase64, // Send image ONLY if OCR failed/bypassed
           currentConfig.llm,
           (chunk) => {
@@ -619,7 +619,7 @@ export function Hud() {
         let accumulatedResponse = "";
         let rafId = 0;
         await performLlmQuery(
-          initialMessages,
+          initialMessages.slice(0, -1),
           detectedText ? null : imageBase64,
           currentConfig.llm,
           (chunk) => {
