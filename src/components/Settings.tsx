@@ -1,4 +1,4 @@
-import { useEffect, useState, FormEvent, useCallback } from "react";
+import { useEffect, useState, FormEvent, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { AppConfig } from "../lib/types";
@@ -200,12 +200,12 @@ export function Settings() {
   const [showAllOptions, setShowAllOptions] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(-1);
 
-  const getFilteredModels = () => {
+  const getFilteredModels = useCallback(() => {
     if (!config?.llm) return [];
     return showAllOptions
       ? fetchedModels
       : fetchedModels.filter(m => m.toLowerCase().includes(config.llm.model.toLowerCase()));
-  };
+  }, [config?.llm?.model, showAllOptions, fetchedModels]);
 
   const [isPresetDropdownOpen, setIsPresetDropdownOpen] = useState(false);
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
@@ -215,7 +215,7 @@ export function Settings() {
   const [showAllUrls, setShowAllUrls] = useState(false);
   const [urlFocusedIndex, setUrlFocusedIndex] = useState(-1);
 
-  const getFilteredUrls = () => {
+  const getFilteredUrls = useCallback(() => {
     if (!config?.llm) return [];
     const allSuggestions: string[] = [];
     const prov = config.llm.provider;
@@ -232,7 +232,7 @@ export function Settings() {
     return showAllUrls
       ? allSuggestions
       : allSuggestions.filter(u => u.toLowerCase().includes(config.llm.endpoint_url.toLowerCase()));
-  };
+  }, [config?.llm?.provider, config?.llm?.endpoint_url, showAllUrls]);
 
   useEffect(() => {
     if (!config?.llm) return;
@@ -435,7 +435,9 @@ export function Settings() {
     }
   };
 
-  const hasUnsavedChanges = config && originalConfig && JSON.stringify(config) !== JSON.stringify(originalConfig);
+  const hasUnsavedChanges = useMemo(() => {
+    return Boolean(config && originalConfig && JSON.stringify(config) !== JSON.stringify(originalConfig));
+  }, [config, originalConfig]);
 
   if (!config) {
     return (
